@@ -19,6 +19,7 @@ export interface Site {
   missing_wind_dir: boolean
   owner_id: string | null
   is_custom: boolean
+  rasp_turnpoint: string | null
 }
 
 export interface HourlyCondition {

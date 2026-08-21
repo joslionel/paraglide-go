@@ -17,7 +17,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/beddugre/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "cemmaes",
@@ -37,7 +38,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/cemmaes/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "constitution-hill",
@@ -57,7 +59,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/constitution-hill/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "cowlod",
@@ -77,7 +80,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/cowlod/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "craig-y-pistyll",
@@ -97,7 +101,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/craig-y-pistyll/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "disgwylfa-fawr",
@@ -117,7 +122,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/disgwylfa-fawr/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "elan-valley",
@@ -137,7 +143,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/members-only-sites/elan-valley/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "ffairbourne",
@@ -157,7 +164,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/members-only-sites/ffairbourne/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "ffarmers",
@@ -177,7 +185,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/ffarmers/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "fforest-farm",
@@ -197,7 +206,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/members-only-sites/fforest-farm/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "foel",
@@ -217,7 +227,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/foel/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "llanddewi-brefi",
@@ -237,7 +248,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/llanddewi-brefi/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "moel-fadian",
@@ -257,7 +269,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/members-only-sites/moel-fadian/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "pen-dinas",
@@ -277,7 +290,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/pen-dinas/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "pennant",
@@ -297,7 +311,8 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/members-only-sites/pennant/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   },
   {
     "slug": "tremaen",
@@ -317,6 +332,7 @@
     "source_url": "https://www.flymidwales.org.uk/flying-sites/open-sites/tremaen/",
     "missing_wind_dir": false,
     "owner_id": null,
-    "is_custom": false
+    "is_custom": false,
+    "rasp_turnpoint": null
   }
 ]

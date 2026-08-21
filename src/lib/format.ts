@@ -24,3 +24,17 @@ export function isToday(dateStr: string): boolean {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date())
   return dateStr === today
 }
+
+/** "YYYY-MM-DDTHH" for the current hour in Europe/London — matches Open-Meteo's local hourly timestamps, so `.startsWith()` finds "now" in an hourly array. Mirrors the equivalent server-side helper in scripts/refresh-conditions.ts. */
+export function currentLondonHourPrefix(): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)!.value
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}`
+}

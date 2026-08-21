@@ -1,29 +1,11 @@
 import type { Reason } from '../lib/scoring'
 import { REASON_TEXT } from './StatusPill'
+import { toXY, wedgePath } from '../lib/polar'
 
 const SIZE = 100
 const CENTER = SIZE / 2
 const RING_R = 42
 const NEEDLE_R = 34
-
-function toXY(angleDeg: number, r: number) {
-  const rad = (angleDeg * Math.PI) / 180
-  return { x: CENTER + r * Math.sin(rad), y: CENTER - r * Math.cos(rad) }
-}
-
-/** Filled pie-wedge from the center out to the ring, spanning the workable direction arc. */
-function wedgePath(startDeg: number, spanDeg: number, r: number) {
-  if (spanDeg >= 360) {
-    // Full circle: two semicircle arcs, since a single SVG arc can't span 360°.
-    const top = toXY(startDeg, r)
-    const bottom = toXY(startDeg + 180, r)
-    return `M ${top.x} ${top.y} A ${r} ${r} 0 1 1 ${bottom.x} ${bottom.y} A ${r} ${r} 0 1 1 ${top.x} ${top.y} Z`
-  }
-  const start = toXY(startDeg, r)
-  const end = toXY(startDeg + spanDeg, r)
-  const largeArc = spanDeg > 180 ? 1 : 0
-  return `M ${CENTER} ${CENTER} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`
-}
 
 export function WindRose({
   dirMin,
@@ -41,7 +23,7 @@ export function WindRose({
   const hasWindow = dirMin !== null && dirMax !== null
   const span = hasWindow ? ((dirMax! - dirMin! + 360) % 360) || 360 : 0
   const needleColor = currentReason ? REASON_TEXT[currentReason] : 'text-slate-400'
-  const tip = currentDir != null ? toXY(currentDir, NEEDLE_R) : null
+  const tip = currentDir != null ? toXY(CENTER, CENTER, currentDir, NEEDLE_R) : null
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${SIZE} ${SIZE}`} className="shrink-0" aria-label="Wind rose">
@@ -49,7 +31,7 @@ export function WindRose({
 
       {hasWindow && (
         <path
-          d={wedgePath(dirMin!, span, RING_R)}
+          d={wedgePath(CENTER, CENTER, dirMin!, span, RING_R)}
           className="fill-emerald-500/30 stroke-emerald-500/70"
           strokeWidth={1}
           strokeLinejoin="round"

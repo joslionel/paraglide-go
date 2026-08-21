@@ -9,6 +9,7 @@ import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { refreshSiteConditions } from '../lib/dataStore'
+import { SiteDetailModal } from './SiteDetailModal'
 
 export function SiteCard({
   site,
@@ -33,6 +34,7 @@ export function SiteCard({
   const [notes, setNotes] = useState(site.notes)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const now = conditions?.now
   const status = now?.status ?? 'unknown'
@@ -179,120 +181,131 @@ export function SiteCard({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{site.name}</h3>
-            {canEdit && (
+    <>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                <button
+                  onClick={() => setDetailOpen(true)}
+                  className="cursor-pointer text-left hover:underline"
+                  title="Open detailed forecast"
+                >
+                  {site.name}
+                </button>
+              </h3>
+              {canEdit && (
+                <button
+                  onClick={startEdit}
+                  aria-label={`Edit ${site.name}`}
+                  className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  ✎
+                </button>
+              )}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <span>{site.grid_ref ?? 'grid ref n/a'}</span>
+              <span>·</span>
+              <span>window {formatWindWindow(site.wind_dir_min, site.wind_dir_max)}</span>
+              {site.members_only && (
+                <span className="rounded bg-violet-500/10 px-1.5 py-0.5 font-medium text-violet-700 dark:text-violet-400">
+                  Members only
+                </span>
+              )}
+              {site.is_custom && (
+                <span className="rounded bg-sky-500/10 px-1.5 py-0.5 font-medium text-sky-700 dark:text-sky-400">
+                  Member-added
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <StatusPill status={status} size="md" />
+            <WindRose
+              dirMin={site.wind_dir_min}
+              dirMax={site.wind_dir_max}
+              currentDir={now?.wind_direction_deg}
+              currentReason={now?.reason}
+              size={56}
+            />
+          </div>
+        </div>
+  
+        {now ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
+            <span>
+              <span className="font-medium">{formatSpeed(now.wind_speed_mph, unit)}</span> {UNIT_LABELS[unit]}
+              <span className="text-slate-400"> (g{formatSpeed(now.wind_gust_mph, unit)})</span>
+            </span>
+            <span>
+              {degToCompass(now.wind_direction_deg)} <span className="text-slate-400">{now.wind_direction_deg}°</span>
+            </span>
+            <span className="text-slate-400">{now.precipitation_probability_percent}% rain</span>
+            {now.gust_warning && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fab219]/15 px-2 py-0.5 text-xs font-medium text-[#946200] dark:text-[#fab219]">
+                ⚠ Gusty
+              </span>
+            )}
+            {isSupabaseConfigured && (
               <button
-                onClick={startEdit}
-                aria-label={`Edit ${site.name}`}
-                className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={doRefresh}
+                disabled={refreshing}
+                aria-label="Refresh forecast"
+                title="Refresh forecast from Open-Meteo"
+                className="ml-auto cursor-pointer text-slate-400 hover:text-slate-600 disabled:opacity-50 dark:hover:text-slate-200"
               >
-                ✎
+                {refreshing ? '…' : '↻'}
               </button>
             )}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
-            <span>{site.grid_ref ?? 'grid ref n/a'}</span>
-            <span>·</span>
-            <span>window {formatWindWindow(site.wind_dir_min, site.wind_dir_max)}</span>
-            {site.members_only && (
-              <span className="rounded bg-violet-500/10 px-1.5 py-0.5 font-medium text-violet-700 dark:text-violet-400">
-                Members only
-              </span>
-            )}
-            {site.is_custom && (
-              <span className="rounded bg-sky-500/10 px-1.5 py-0.5 font-medium text-sky-700 dark:text-sky-400">
-                Member-added
-              </span>
+        ) : (
+          <div className="mt-3">
+            <p className="text-sm text-slate-400">
+              {site.missing_wind_dir ? 'No wind-direction window recorded for this site yet.' : 'No forecast data yet.'}
+            </p>
+            {isSupabaseConfigured && !site.missing_wind_dir && (
+              <button
+                onClick={doRefresh}
+                disabled={refreshing}
+                className="mt-1.5 cursor-pointer rounded-full border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {refreshing ? 'Fetching…' : '↻ Fetch forecast now'}
+              </button>
             )}
           </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <StatusPill status={status} size="md" />
-          <WindRose
-            dirMin={site.wind_dir_min}
-            dirMax={site.wind_dir_max}
-            currentDir={now?.wind_direction_deg}
-            currentReason={now?.reason}
-            size={56}
-          />
-        </div>
-      </div>
-
-      {now ? (
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
-          <span>
-            <span className="font-medium">{formatSpeed(now.wind_speed_mph, unit)}</span> {UNIT_LABELS[unit]}
-            <span className="text-slate-400"> (g{formatSpeed(now.wind_gust_mph, unit)})</span>
-          </span>
-          <span>
-            {degToCompass(now.wind_direction_deg)} <span className="text-slate-400">{now.wind_direction_deg}°</span>
-          </span>
-          <span className="text-slate-400">{now.precipitation_probability_percent}% rain</span>
-          {now.gust_warning && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#fab219]/15 px-2 py-0.5 text-xs font-medium text-[#946200] dark:text-[#fab219]">
-              ⚠ Gusty
-            </span>
-          )}
-          {isSupabaseConfigured && (
+        )}
+        {refreshError && <p className="mt-1 text-xs text-[#d03b3b]">{refreshError}</p>}
+  
+        {conditions && conditions.daily.length > 0 && (
+          <div className="mt-4">
+            <ForecastStrip daily={conditions.daily} />
+          </div>
+        )}
+  
+        {(site.notes || site.liaison) && (
+          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
             <button
-              onClick={doRefresh}
-              disabled={refreshing}
-              aria-label="Refresh forecast"
-              title="Refresh forecast from Open-Meteo"
-              className="ml-auto cursor-pointer text-slate-400 hover:text-slate-600 disabled:opacity-50 dark:hover:text-slate-200"
+              onClick={() => setNotesOpen(!notesOpen)}
+              className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             >
-              {refreshing ? '…' : '↻'}
+              {notesOpen ? '▾ Hide notes & hazards' : '▸ Notes & hazards'}
             </button>
-          )}
-        </div>
-      ) : (
-        <div className="mt-3">
-          <p className="text-sm text-slate-400">
-            {site.missing_wind_dir ? 'No wind-direction window recorded for this site yet.' : 'No forecast data yet.'}
-          </p>
-          {isSupabaseConfigured && !site.missing_wind_dir && (
-            <button
-              onClick={doRefresh}
-              disabled={refreshing}
-              className="mt-1.5 cursor-pointer rounded-full border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {refreshing ? 'Fetching…' : '↻ Fetch forecast now'}
-            </button>
-          )}
-        </div>
-      )}
-      {refreshError && <p className="mt-1 text-xs text-[#d03b3b]">{refreshError}</p>}
-
-      {conditions && conditions.daily.length > 0 && (
-        <div className="mt-4">
-          <ForecastStrip daily={conditions.daily} />
-        </div>
-      )}
-
-      {(site.notes || site.liaison) && (
-        <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-          <button
-            onClick={() => setNotesOpen(!notesOpen)}
-            className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-          >
-            {notesOpen ? '▾ Hide notes & hazards' : '▸ Notes & hazards'}
-          </button>
-          {notesOpen && (
-            <div className="mt-2 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-              {site.notes && <p className="whitespace-pre-line">{site.notes}</p>}
-              <div className="flex flex-wrap gap-x-4 text-xs text-slate-400">
-                {site.liaison && <span>Liaison: {site.liaison}</span>}
-                {site.hg_rating && <span>HG: {site.hg_rating}</span>}
-                {site.pg_rating && <span>PG: {site.pg_rating}</span>}
+            {notesOpen && (
+              <div className="mt-2 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                {site.notes && <p className="whitespace-pre-line">{site.notes}</p>}
+                <div className="flex flex-wrap gap-x-4 text-xs text-slate-400">
+                  {site.liaison && <span>Liaison: {site.liaison}</span>}
+                  {site.hg_rating && <span>HG: {site.hg_rating}</span>}
+                  {site.pg_rating && <span>PG: {site.pg_rating}</span>}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+            )}
+          </div>
+        )}
+      </div>
+      {detailOpen && <SiteDetailModal site={site} onClose={() => setDetailOpen(false)} />}
+    </>
   )
 }
