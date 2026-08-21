@@ -21,6 +21,9 @@ dist-ssr
 supabase/.temp
 supabase/.branches
 
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
