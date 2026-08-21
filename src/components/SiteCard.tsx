@@ -205,7 +205,7 @@ export function SiteCard({
       </div>
 
       {now ? (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
           <span>
             <span className="font-medium">{formatSpeed(now.wind_speed_mph, unit)}</span> {UNIT_LABELS[unit]}
             <span className="text-slate-400"> (g{formatSpeed(now.wind_gust_mph, unit)})</span>
@@ -214,6 +214,11 @@ export function SiteCard({
             {degToCompass(now.wind_direction_deg)} <span className="text-slate-400">{now.wind_direction_deg}°</span>
           </span>
           <span className="text-slate-400">{now.precipitation_probability_percent}% rain</span>
+          {now.gust_warning && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#fab219]/15 px-2 py-0.5 text-xs font-medium text-[#946200] dark:text-[#fab219]">
+              ⚠ Gusty
+            </span>
+          )}
         </div>
       ) : (
         <p className="mt-3 text-sm text-slate-400">

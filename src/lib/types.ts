@@ -25,6 +25,7 @@ export interface HourlyCondition {
   time: string
   status: Status
   reason: Reason
+  gust_warning: boolean
   wind_speed_mph: number
   wind_gust_mph: number
   wind_direction_deg: number

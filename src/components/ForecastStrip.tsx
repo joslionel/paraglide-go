@@ -103,7 +103,17 @@ export function ForecastStrip({ daily }: { daily: DailyCondition[] }) {
                   </span>
                   <span className="text-slate-500 dark:text-slate-400">{formatHour(h.time)}</span>
                   <span className="tabular-nums">{formatSpeed(h.wind_speed_mph, unit)}</span>
-                  <span className="tabular-nums text-slate-500 dark:text-slate-400">g{formatSpeed(h.wind_gust_mph, unit)}</span>
+                  <span
+                    className={`tabular-nums ${
+                      h.gust_warning
+                        ? 'font-bold text-[#946200] dark:text-[#fab219]'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                    title={h.gust_warning ? 'Gusty — big spread relative to the mean, or a big gust outright' : undefined}
+                  >
+                    g{formatSpeed(h.wind_gust_mph, unit)}
+                    {h.gust_warning && '⚠'}
+                  </span>
                   <span>{degToCompass(h.wind_direction_deg)}</span>
                   <span className="text-right tabular-nums text-slate-500 dark:text-slate-400">
                     {h.precipitation_probability_percent}%

@@ -13,6 +13,7 @@
     "import-sites": "tsx scripts/import-sites.ts"
   },
   "dependencies": {
+    "@supabase/functions-js": "^2.112.3",
     "@supabase/supabase-js": "^2.112.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

@@ -20,11 +20,11 @@ export interface Thresholds {
   speedOnMaxMph: number
   /** Above this speed it's too strong, regardless of direction. */
   speedMarginalMaxMph: number
-  /** Gust minus mean speed up to this is normal and doesn't downgrade anything. */
+  /** Gust minus mean speed up to this is normal and doesn't downgrade anything; above it, a soft downgrade to marginal. */
   gustSpreadOkMph: number
-  /** Gust ÷ mean speed beyond this ratio is generally unflyable, regardless of the mean. */
+  /** Gust ÷ mean speed beyond this ratio triggers the "gusty" warning badge — doesn't change the on/marginal/off status itself. */
   gustRatioMax: number
-  /** Gust speed above this is a hard no-go, regardless of the mean or the ratio. */
+  /** Gust speed above this triggers the "gusty" warning badge — doesn't change the on/marginal/off status itself. */
   gustAbsoluteMaxMph: number
   /** Within this many degrees of either edge of the site's wind arc, direction is "marginal" instead of "on". */
   directionMarginalDegrees: number
@@ -101,27 +101,28 @@ export function speedStatus(speedMph: number, gustMph: number, window: WindWindo
   else status = 'off'
 
   // A few mph of gust over the mean is normal; more than that is a soft downgrade.
+  // (Big/ratio-based gusts are flagged separately by gustWarning below, rather
+  // than forced to "off" here — real forecast data is gusty often enough at
+  // low mean speeds that a hard ratio cutoff swamped the status with false "off"s.)
   const gustSpread = gustMph - speedMph
   if (gustSpread > thresholds.gustSpreadOkMph) {
     status = worseOf(status, 'marginal')
   }
 
-  // Two hard ceilings, either one forces a no-go regardless of the mean speed:
-  // gusts much bigger than the mean (rule of thumb: >1.5x) are generally unflyable,
-  // and a big enough gust in absolute terms is a no-go on its own.
-  const ratioExceeded = speedMph > 0 && gustMph / speedMph > thresholds.gustRatioMax
-  if (ratioExceeded || gustMph > thresholds.gustAbsoluteMaxMph) {
-    status = worseOf(status, 'off')
-  }
-
   return status
+}
+
+/** Gusts much bigger than the mean, or big in absolute terms — worth flagging even when it doesn't change the status. */
+export function gustWarning(speedMph: number, gustMph: number, thresholds: Thresholds): boolean {
+  const ratioExceeded = speedMph > 0 && gustMph / speedMph > thresholds.gustRatioMax
+  return ratioExceeded || gustMph > thresholds.gustAbsoluteMaxMph
 }
 
 export function computeStatus(
   reading: WeatherReading,
   window: WindWindow,
   thresholds: Thresholds = DEFAULT_THRESHOLDS
-): { status: Status; direction: Status; speed: Status; reason: Reason } {
+): { status: Status; direction: Status; speed: Status; reason: Reason; gustWarning: boolean } {
   const direction = directionStatus(reading.windDirectionDeg, window, thresholds)
   const speed = speedStatus(reading.windSpeedMph, reading.windGustMph, window, thresholds)
   let status = worseOf(direction, speed)
@@ -140,5 +141,5 @@ export function computeStatus(
     reason = 'on'
   }
 
-  return { status, direction, speed, reason }
+  return { status, direction, speed, reason, gustWarning: gustWarning(reading.windSpeedMph, reading.windGustMph, thresholds) }
 }

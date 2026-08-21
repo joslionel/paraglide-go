@@ -3,8 +3,12 @@
 // shouldCreateUser: true, so a stranger can't self-serve a magic link without
 // a valid referral code (default "flymidwales", see migration 0002).
 //
-// Existing members don't need a code again: if the email already has an
-// account, this just sends them a normal login link.
+// Existing members don't need a code: if the email already has an account,
+// this just sends a normal login link and ignores any referralCode sent.
+// If the email has NO account and no referralCode was sent (the "existing
+// member" form on the client never sends one), this is a silent no-op —
+// same {ok:true} response either way, so the response never reveals whether
+// an email is registered.
 //
 // Deploy: `supabase functions deploy request-access`
 // Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (set automatically for
@@ -65,7 +69,9 @@ Deno.serve(async (req) => {
   }
 
   if (!referralCode) {
-    return json({ error: 'A referral code is required for new accounts' }, 400)
+    // No account, and this came from the "existing member" form (no code
+    // field at all) — stay silent rather than confirming the email is unregistered.
+    return json({ ok: true })
   }
 
   const { data: code } = await supabase.from('referral_codes').select('*').eq('code', referralCode).maybeSingle()

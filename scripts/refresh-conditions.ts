@@ -64,7 +64,7 @@ async function computeSiteConditions(site: Site): Promise<SiteConditions | null>
   }
 
   const hourlyConditions: HourlyCondition[] = daylightHourly.map((h) => {
-    const { status, reason } = computeStatus(
+    const { status, reason, gustWarning } = computeStatus(
       {
         windSpeedMph: h.windSpeedMph,
         windGustMph: h.windGustMph,
@@ -78,6 +78,7 @@ async function computeSiteConditions(site: Site): Promise<SiteConditions | null>
       time: h.time,
       status,
       reason,
+      gust_warning: gustWarning,
       wind_speed_mph: Math.round(h.windSpeedMph * 10) / 10,
       wind_gust_mph: Math.round(h.windGustMph * 10) / 10,
       wind_direction_deg: h.windDirectionDeg,

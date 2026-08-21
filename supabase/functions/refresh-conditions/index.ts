@@ -56,11 +56,19 @@ function angularDistance(a: number, b: number) {
   return Math.abs(((a - b + 540) % 360) - 180)
 }
 
+function gustWarning(
+  reading: { windSpeedMph: number; windGustMph: number },
+  t = DEFAULT_THRESHOLDS
+): boolean {
+  const ratioExceeded = reading.windSpeedMph > 0 && reading.windGustMph / reading.windSpeedMph > t.gustRatioMax
+  return ratioExceeded || reading.windGustMph > t.gustAbsoluteMaxMph
+}
+
 function computeStatus(
   reading: { windSpeedMph: number; windGustMph: number; windDirectionDeg: number; precipitationProbabilityPercent: number },
   window: { dirMin: number; dirMax: number; speedMinMph?: number | null; speedMaxMph?: number | null },
   t = DEFAULT_THRESHOLDS
-): { status: Status; reason: Reason } {
+): { status: Status; reason: Reason; gustWarning: boolean } {
   const span = (((window.dirMax - window.dirMin) % 360) + 360) % 360
   const offset = (((reading.windDirectionDeg - window.dirMin) % 360) + 360) % 360
   const inArc = span === 0 ? angularDistance(reading.windDirectionDeg, window.dirMin) < 0.01 : offset <= span
@@ -77,10 +85,11 @@ function computeStatus(
   else if (reading.windSpeedMph <= onMax) speed = 'on'
   else if (reading.windSpeedMph <= marginalMax) speed = 'marginal'
   else speed = 'off'
+  // A few mph of gust over the mean is normal; more than that is a soft downgrade.
+  // Big/ratio-based gusts are flagged separately (gustWarning) rather than
+  // forced to "off" — real forecast data is gusty often enough at low mean
+  // speeds that a hard ratio cutoff swamped the status with false "off"s.
   if (reading.windGustMph - reading.windSpeedMph > t.gustSpreadOkMph) speed = worseOf(speed, 'marginal')
-
-  const ratioExceeded = reading.windSpeedMph > 0 && reading.windGustMph / reading.windSpeedMph > t.gustRatioMax
-  if (ratioExceeded || reading.windGustMph > t.gustAbsoluteMaxMph) speed = worseOf(speed, 'off')
 
   let status = worseOf(direction, speed)
   if (status === 'on' && reading.precipitationProbabilityPercent >= t.precipMarginalPercent) status = 'marginal'
@@ -94,7 +103,7 @@ function computeStatus(
     reason = 'on'
   }
 
-  return { status, reason }
+  return { status, reason, gustWarning: gustWarning(reading, t) }
 }
 
 Deno.serve(async () => {
@@ -140,11 +149,12 @@ Deno.serve(async () => {
         windDirectionDeg: data.hourly.wind_direction_10m[i],
         precipitationProbabilityPercent: data.hourly.precipitation_probability[i],
       }
-      const { status, reason } = computeStatus(reading, window)
+      const { status, reason, gustWarning: gusty } = computeStatus(reading, window)
       return {
         time,
         status,
         reason,
+        gust_warning: gusty,
         wind_speed_mph: reading.windSpeedMph,
         wind_gust_mph: reading.windGustMph,
         wind_direction_deg: reading.windDirectionDeg,
