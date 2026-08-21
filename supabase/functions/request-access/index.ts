@@ -27,17 +27,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  let email: string, referralCode: string
+  let email: string, referralCode: string, redirectTo: string | undefined
   try {
     const body = await req.json()
     email = String(body.email ?? '').trim().toLowerCase()
     referralCode = String(body.referralCode ?? '').trim()
+    redirectTo = body.redirectTo ? String(body.redirectTo) : undefined
   } catch {
     return json({ error: 'Invalid request body' }, 400)
   }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: 'Enter a valid email address' }, 400)
+  }
+
+  // Supabase itself rejects anything not on the project's Redirect URLs
+  // allow-list, so this is just a sanity check, not the real gate.
+  if (redirectTo && !/^https?:\/\//.test(redirectTo)) {
+    return json({ error: 'Invalid redirect URL' }, 400)
   }
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -49,7 +56,10 @@ Deno.serve(async (req) => {
   const existingUser = userList.users.find((u) => u.email?.toLowerCase() === email)
 
   if (existingUser) {
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
+    })
     if (error) return json({ error: 'Could not send sign-in link' }, 500)
     return json({ ok: true })
   }
@@ -64,7 +74,7 @@ Deno.serve(async (req) => {
     return json({ error: 'That referral code is not valid' }, 400)
   }
 
-  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email)
+  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
   if (inviteError) return json({ error: 'Could not create account' }, 500)
 
   if (code.uses_remaining !== null) {

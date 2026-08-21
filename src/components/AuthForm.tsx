@@ -15,8 +15,12 @@ export function AuthForm({ onClose }: { onClose: () => void }) {
     setStatus('sending')
     setErrorMessage('')
 
+    // Send the caller back to wherever they actually logged in from (dev or
+    // prod) rather than relying on Supabase's project-wide Site URL default.
+    const redirectTo = window.location.origin + import.meta.env.BASE_URL
+
     const { data, error } = await supabase.functions.invoke('request-access', {
-      body: { email, referralCode },
+      body: { email, referralCode, redirectTo },
     })
 
     if (error || data?.error) {
