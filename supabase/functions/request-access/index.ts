@@ -55,7 +55,10 @@ Deno.serve(async (req) => {
 
   // Small member list expected for a club dashboard — a single page is plenty.
   const { data: userList, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  if (listError) return json({ error: 'Could not check account status' }, 500)
+  if (listError) {
+    console.error('listUsers failed:', listError)
+    return json({ error: `Could not check account status: ${listError.message}` }, 500)
+  }
 
   const existingUser = userList.users.find((u) => u.email?.toLowerCase() === email)
 
@@ -64,7 +67,10 @@ Deno.serve(async (req) => {
       email,
       options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
     })
-    if (error) return json({ error: 'Could not send sign-in link' }, 500)
+    if (error) {
+      console.error('signInWithOtp failed:', error)
+      return json({ error: `Could not send sign-in link: ${error.message}` }, 500)
+    }
     return json({ ok: true })
   }
 
@@ -81,7 +87,10 @@ Deno.serve(async (req) => {
   }
 
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
-  if (inviteError) return json({ error: 'Could not create account' }, 500)
+  if (inviteError) {
+    console.error('inviteUserByEmail failed:', inviteError)
+    return json({ error: `Could not create account: ${inviteError.message}` }, 500)
+  }
 
   if (code.uses_remaining !== null) {
     await supabase
