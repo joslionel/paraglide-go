@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { refreshSiteConditions } from '../lib/dataStore'
 import { useAuth } from '../lib/AuthContext'
 import { osgb36GridRefToWgs84 } from '../lib/osgb'
+import type { SiteConditions } from '../lib/types'
 
 function slugify(name: string): string {
   const base = name
@@ -12,7 +14,15 @@ function slugify(name: string): string {
   return `${base}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-export function AddSiteForm({ remaining, onAdded }: { remaining: number; onAdded: () => void }) {
+export function AddSiteForm({
+  remaining,
+  onAdded,
+  onConditionsRefreshed,
+}: {
+  remaining: number
+  onAdded: () => void
+  onConditionsRefreshed: (slug: string, conditions: SiteConditions) => void
+}) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -74,8 +84,9 @@ export function AddSiteForm({ remaining, onAdded }: { remaining: number; onAdded
     setStatus('saving')
     setErrorMessage('')
 
+    const slug = slugify(name)
     const { error } = await supabase.from('sites').insert({
-      slug: slugify(name),
+      slug,
       name: name.trim(),
       grid_ref: gridRef.trim() || null,
       lat: finalLat,
@@ -104,6 +115,17 @@ export function AddSiteForm({ remaining, onAdded }: { remaining: number; onAdded
     reset()
     setOpen(false)
     onAdded()
+
+    // Pull in a forecast immediately rather than waiting for the next
+    // scheduled refresh (up to 30 min away) — best-effort, the site is
+    // already saved either way.
+    try {
+      const conditions = await refreshSiteConditions(slug)
+      onConditionsRefreshed(slug, conditions)
+    } catch {
+      // Scheduled refresh will pick it up eventually; the site's own
+      // "Fetch forecast now" button also covers this.
+    }
   }
 
   if (!open) {

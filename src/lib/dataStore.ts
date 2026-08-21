@@ -40,4 +40,22 @@ export async function getConditions(): Promise<ConditionsCache> {
   return res.json()
 }
 
+/**
+ * On-demand refresh for a single site — used by the manual refresh button and
+ * right after a new site is added, rather than waiting for the next scheduled
+ * `npm run refresh` / GitHub Actions cron run (up to 30 min away). Only works
+ * in Supabase mode; the local-JSON fallback has no live function to call.
+ * Server-side (via the refresh-conditions edge function) applies a short
+ * cooldown per site, so rapid repeat clicks just return the cached result
+ * instead of re-hitting Open-Meteo.
+ */
+export async function refreshSiteConditions(slug: string): Promise<SiteConditions> {
+  if (!supabase) throw new Error('Refresh requires Supabase to be configured')
+
+  const { data, error } = await supabase.functions.invoke('refresh-conditions', { body: { slug } })
+  if (error) throw new Error(`Refresh failed: ${error.message}`)
+  if (data?.error) throw new Error(data.error)
+  return data.conditions as SiteConditions
+}
+
 export { isSupabaseConfigured }

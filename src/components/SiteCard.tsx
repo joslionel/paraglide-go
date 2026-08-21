@@ -8,15 +8,18 @@ import { useAuth } from '../lib/AuthContext'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { refreshSiteConditions } from '../lib/dataStore'
 
 export function SiteCard({
   site,
   conditions,
   onChanged,
+  onConditionsRefreshed,
 }: {
   site: Site
   conditions: SiteConditions | undefined
   onChanged: () => void
+  onConditionsRefreshed: (slug: string, conditions: SiteConditions) => void
 }) {
   const { user } = useAuth()
   const { unit } = useUnit()
@@ -28,11 +31,26 @@ export function SiteCard({
   const [windDirMin, setWindDirMin] = useState(String(site.wind_dir_min ?? ''))
   const [windDirMax, setWindDirMax] = useState(String(site.wind_dir_max ?? ''))
   const [notes, setNotes] = useState(site.notes)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
 
   const now = conditions?.now
   const status = now?.status ?? 'unknown'
   const canEdit = Boolean(user) && isSupabaseConfigured
   const canDelete = canEdit && site.is_custom && site.owner_id === user?.id
+
+  const doRefresh = async () => {
+    setRefreshing(true)
+    setRefreshError('')
+    try {
+      const updated = await refreshSiteConditions(site.slug)
+      onConditionsRefreshed(site.slug, updated)
+    } catch (err) {
+      setRefreshError(err instanceof Error ? err.message : 'Refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const startEdit = () => {
     setName(site.name)
@@ -219,12 +237,35 @@ export function SiteCard({
               ⚠ Gusty
             </span>
           )}
+          {isSupabaseConfigured && (
+            <button
+              onClick={doRefresh}
+              disabled={refreshing}
+              aria-label="Refresh forecast"
+              title="Refresh forecast from Open-Meteo"
+              className="ml-auto cursor-pointer text-slate-400 hover:text-slate-600 disabled:opacity-50 dark:hover:text-slate-200"
+            >
+              {refreshing ? '…' : '↻'}
+            </button>
+          )}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-slate-400">
-          {site.missing_wind_dir ? 'No wind-direction window recorded for this site yet.' : 'No forecast data.'}
-        </p>
+        <div className="mt-3">
+          <p className="text-sm text-slate-400">
+            {site.missing_wind_dir ? 'No wind-direction window recorded for this site yet.' : 'No forecast data yet.'}
+          </p>
+          {isSupabaseConfigured && !site.missing_wind_dir && (
+            <button
+              onClick={doRefresh}
+              disabled={refreshing}
+              className="mt-1.5 cursor-pointer rounded-full border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {refreshing ? 'Fetching…' : '↻ Fetch forecast now'}
+            </button>
+          )}
+        </div>
       )}
+      {refreshError && <p className="mt-1 text-xs text-[#d03b3b]">{refreshError}</p>}
 
       {conditions && conditions.daily.length > 0 && (
         <div className="mt-4">

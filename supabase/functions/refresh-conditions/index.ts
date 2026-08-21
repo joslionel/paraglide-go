@@ -1,13 +1,13 @@
-// Supabase Edge Function stub for the scheduled refresh job (Step 5 of the spec).
-// NOT deployed or tested yet — this is v1 scaffolding for when a Supabase
-// project exists. Until then, `npm run refresh` (scripts/refresh-conditions.ts)
-// does the same job locally and writes to public/conditions_cache.json.
+// Refreshes conditions_cache from Open-Meteo. Two modes:
+//   - POST {} (or no body) -> refresh every site. Used by the scheduled job.
+//   - POST { slug: "..." } -> refresh just that one site and return its
+//     computed conditions directly. Used by the client for "refresh this
+//     card" and for pulling in a forecast right after a new site is added
+//     (the scheduled job/cron might not run for up to 30 minutes otherwise).
 //
-// To activate:
-//   1. `supabase functions deploy refresh-conditions`
-//   2. Schedule it with `supabase functions schedule` (or pg_cron calling
-//      `net.http_post` against this function) every 30-60 minutes.
-//   3. Set SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY as function secrets.
+// Deploy: `supabase functions deploy refresh-conditions`
+// Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (set automatically for
+// Supabase-hosted functions).
 //
 // The scoring logic (direction/speed/gust/precip -> on/marginal/off) is
 // intentionally duplicated from src/lib/scoring.ts rather than imported,
@@ -18,6 +18,17 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const FORECAST_DAYS = 5
+const SINGLE_SITE_COOLDOWN_MS = 2 * 60 * 1000 // avoid refetching if a card was just refreshed
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } })
+}
 
 // Pure string comparison — Open-Meteo's local timestamps carry no offset, so
 // Date() would misread them in the function's own runtime timezone. Mirrors
@@ -56,10 +67,7 @@ function angularDistance(a: number, b: number) {
   return Math.abs(((a - b + 540) % 360) - 180)
 }
 
-function gustWarning(
-  reading: { windSpeedMph: number; windGustMph: number },
-  t = DEFAULT_THRESHOLDS
-): boolean {
+function gustWarning(reading: { windSpeedMph: number; windGustMph: number }, t = DEFAULT_THRESHOLDS): boolean {
   const ratioExceeded = reading.windSpeedMph > 0 && reading.windGustMph / reading.windSpeedMph > t.gustRatioMax
   return ratioExceeded || reading.windGustMph > t.gustAbsoluteMaxMph
 }
@@ -106,89 +114,138 @@ function computeStatus(
   return { status, reason, gustWarning: gustWarning(reading, t) }
 }
 
-Deno.serve(async () => {
+async function refreshSite(site: {
+  slug: string
+  lat: number | null
+  lon: number | null
+  missing_wind_dir: boolean
+  wind_dir_min: number | null
+  wind_dir_max: number | null
+  wind_speed_min_mph: number | null
+  wind_speed_max_mph: number | null
+}) {
+  if (site.lat == null || site.lon == null || site.missing_wind_dir) return null
+
+  const url = new URL('https://api.open-meteo.com/v1/forecast')
+  url.searchParams.set('latitude', String(site.lat))
+  url.searchParams.set('longitude', String(site.lon))
+  url.searchParams.set('hourly', 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability')
+  url.searchParams.set('daily', 'sunrise,sunset')
+  url.searchParams.set('wind_speed_unit', 'mph')
+  url.searchParams.set('forecast_days', String(FORECAST_DAYS))
+  url.searchParams.set('timezone', 'Europe/London')
+
+  const res = await fetch(url.toString())
+  if (!res.ok) return null
+  const data = await res.json()
+
+  const sunByDate = new Map<string, { sunrise: string; sunset: string }>(
+    data.daily.time.map((date: string, i: number) => [date, { sunrise: data.daily.sunrise[i], sunset: data.daily.sunset[i] }])
+  )
+
+  const window = { dirMin: site.wind_dir_min, dirMax: site.wind_dir_max, speedMinMph: site.wind_speed_min_mph, speedMaxMph: site.wind_speed_max_mph }
+
+  const daylightIndices = (data.hourly.time as string[])
+    .map((time, i) => ({ time, i }))
+    .filter(({ time }) => {
+      const sun = sunByDate.get(time.slice(0, 10))
+      return sun ? hourOverlapsDaylight(time, sun.sunrise, sun.sunset) : true
+    })
+
+  const hourly = daylightIndices.map(({ time, i }) => {
+    const reading = {
+      windSpeedMph: data.hourly.wind_speed_10m[i],
+      windGustMph: data.hourly.wind_gusts_10m[i],
+      windDirectionDeg: data.hourly.wind_direction_10m[i],
+      precipitationProbabilityPercent: data.hourly.precipitation_probability[i],
+    }
+    const { status, reason, gustWarning: gusty } = computeStatus(reading, window)
+    return {
+      time,
+      status,
+      reason,
+      gust_warning: gusty,
+      wind_speed_mph: reading.windSpeedMph,
+      wind_gust_mph: reading.windGustMph,
+      wind_direction_deg: reading.windDirectionDeg,
+      precipitation_probability_percent: reading.precipitationProbabilityPercent,
+    }
+  })
+
+  const byDate = new Map<string, typeof hourly>()
+  for (const h of hourly) {
+    const date = h.time.slice(0, 10)
+    if (!byDate.has(date)) byDate.set(date, [])
+    byDate.get(date)!.push(h)
+  }
+  const daily = [...byDate.entries()].map(([date, hours]) => {
+    const rank: Record<Status, number> = { on: 0, marginal: 1, off: 2 }
+    const best = hours.reduce((acc: Status, h) => (rank[h.status as Status] < rank[acc] ? h.status : acc), 'off' as Status)
+    return { date, status: best, hours }
+  })
+
+  const nowLondon = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const get = (type: string) => nowLondon.find((p) => p.type === type)!.value
+  const nowPrefix = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}`
+  const nowEntry = hourly.find((h) => h.time.slice(0, 13) === nowPrefix) ?? hourly[0] ?? null
+
+  return {
+    slug: site.slug,
+    updated_at: new Date().toISOString(),
+    now: nowEntry,
+    daily,
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
+
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
+  let slug: string | undefined
+  try {
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    slug = body?.slug ? String(body.slug) : undefined
+  } catch {
+    slug = undefined
+  }
+
+  if (slug) {
+    const { data: existingCache } = await supabase.from('conditions_cache').select('updated_at').eq('slug', slug).maybeSingle()
+    if (existingCache && Date.now() - new Date(existingCache.updated_at).getTime() < SINGLE_SITE_COOLDOWN_MS) {
+      const { data: cached } = await supabase.from('conditions_cache').select('*').eq('slug', slug).single()
+      return json({ updated: 0, cooldown: true, conditions: cached })
+    }
+
+    const { data: site, error } = await supabase.from('sites').select('*').eq('slug', slug).single()
+    if (error || !site) return json({ error: 'Site not found' }, 404)
+
+    const conditions = await refreshSite(site)
+    if (!conditions) return json({ error: 'Site is missing coordinates or a wind-direction window' }, 400)
+
+    const { error: upsertError } = await supabase.from('conditions_cache').upsert(conditions)
+    if (upsertError) return json({ error: upsertError.message }, 500)
+
+    return json({ updated: 1, conditions })
+  }
+
   const { data: sites, error } = await supabase.from('sites').select('*')
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  if (error) return json({ error: error.message }, 500)
 
   let updated = 0
   for (const site of sites ?? []) {
-    if (site.lat == null || site.lon == null || site.missing_wind_dir) continue
-
-    const url = new URL('https://api.open-meteo.com/v1/forecast')
-    url.searchParams.set('latitude', String(site.lat))
-    url.searchParams.set('longitude', String(site.lon))
-    url.searchParams.set('hourly', 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability')
-    url.searchParams.set('daily', 'sunrise,sunset')
-    url.searchParams.set('wind_speed_unit', 'mph')
-    url.searchParams.set('forecast_days', String(FORECAST_DAYS))
-    url.searchParams.set('timezone', 'Europe/London')
-
-    const res = await fetch(url.toString())
-    if (!res.ok) continue
-    const data = await res.json()
-
-    const sunByDate = new Map<string, { sunrise: string; sunset: string }>(
-      data.daily.time.map((date: string, i: number) => [date, { sunrise: data.daily.sunrise[i], sunset: data.daily.sunset[i] }])
-    )
-
-    const window = { dirMin: site.wind_dir_min, dirMax: site.wind_dir_max, speedMinMph: site.wind_speed_min_mph, speedMaxMph: site.wind_speed_max_mph }
-
-    const daylightIndices = (data.hourly.time as string[])
-      .map((time, i) => ({ time, i }))
-      .filter(({ time }) => {
-        const sun = sunByDate.get(time.slice(0, 10))
-        return sun ? hourOverlapsDaylight(time, sun.sunrise, sun.sunset) : true
-      })
-
-    const hourly = daylightIndices.map(({ time, i }) => {
-      const reading = {
-        windSpeedMph: data.hourly.wind_speed_10m[i],
-        windGustMph: data.hourly.wind_gusts_10m[i],
-        windDirectionDeg: data.hourly.wind_direction_10m[i],
-        precipitationProbabilityPercent: data.hourly.precipitation_probability[i],
-      }
-      const { status, reason, gustWarning: gusty } = computeStatus(reading, window)
-      return {
-        time,
-        status,
-        reason,
-        gust_warning: gusty,
-        wind_speed_mph: reading.windSpeedMph,
-        wind_gust_mph: reading.windGustMph,
-        wind_direction_deg: reading.windDirectionDeg,
-        precipitation_probability_percent: reading.precipitationProbabilityPercent,
-      }
-    })
-
-    const byDate = new Map<string, typeof hourly>()
-    for (const h of hourly) {
-      const date = h.time.slice(0, 10)
-      if (!byDate.has(date)) byDate.set(date, [])
-      byDate.get(date)!.push(h)
+    try {
+      const conditions = await refreshSite(site)
+      if (!conditions) continue
+      const { error: upsertError } = await supabase.from('conditions_cache').upsert(conditions)
+      if (upsertError) throw upsertError
+      updated++
+    } catch (err) {
+      console.error(`Failed to refresh ${site.slug}:`, err)
     }
-    const daily = [...byDate.entries()].map(([date, hours]) => {
-      const rank: Record<Status, number> = { on: 0, marginal: 1, off: 2 }
-      const best = hours.reduce((acc: Status, h) => (rank[h.status as Status] < rank[acc] ? h.status : acc), 'off' as Status)
-      return { date, status: best, hours }
-    })
-
-    const nowLondon = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-    }).formatToParts(new Date())
-    const get = (type: string) => nowLondon.find((p) => p.type === type)!.value
-    const nowPrefix = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}`
-    const nowEntry = hourly.find((h) => h.time.slice(0, 13) === nowPrefix) ?? hourly[0] ?? null
-
-    await supabase.from('conditions_cache').upsert({
-      slug: site.slug,
-      updated_at: new Date().toISOString(),
-      now: nowEntry,
-      daily,
-    })
-    updated++
   }
 
-  return new Response(JSON.stringify({ updated }), { headers: { 'Content-Type': 'application/json' } })
+  return json({ updated })
 })

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSites, getConditions, isSupabaseConfigured } from './lib/dataStore'
-import type { Site, ConditionsCache } from './lib/types'
+import type { Site, ConditionsCache, SiteConditions } from './lib/types'
 import { SiteCard } from './components/SiteCard'
 import { UserMenu } from './components/UserMenu'
 import { AddSiteForm } from './components/AddSiteForm'
@@ -38,6 +38,13 @@ function DashboardContent() {
       })
       .catch((err) => setConditionsError(err.message))
   }, [loadSites, user])
+
+  const mergeConditions = useCallback((slug: string, siteConditions: SiteConditions) => {
+    setConditions((prev) => ({
+      generated_at: prev && prev.generated_at > siteConditions.updated_at ? prev.generated_at : siteConditions.updated_at,
+      sites: { ...(prev?.sites ?? {}), [slug]: siteConditions },
+    }))
+  }, [])
 
   const visibleSites = sites.filter((s) => {
     if (filter === 'open') return !s.members_only
@@ -104,7 +111,9 @@ function DashboardContent() {
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && <AddSiteForm remaining={5 - customSiteCount} onAdded={loadSites} />}
+          {isSupabaseConfigured && user && (
+            <AddSiteForm remaining={5 - customSiteCount} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
+          )}
         </div>
 
         {isSupabaseConfigured && !user && (
@@ -125,7 +134,13 @@ function DashboardContent() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleSites.map((site) => (
-            <SiteCard key={site.slug} site={site} conditions={conditions?.sites[site.slug]} onChanged={loadSites} />
+            <SiteCard
+              key={site.slug}
+              site={site}
+              conditions={conditions?.sites[site.slug]}
+              onChanged={loadSites}
+              onConditionsRefreshed={mergeConditions}
+            />
           ))}
         </div>
       </main>
