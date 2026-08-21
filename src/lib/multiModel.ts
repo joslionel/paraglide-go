@@ -5,6 +5,18 @@
 // reading a precomputed cache (see dataStore.ts's header comment).
 import { hourOverlapsDaylight } from './daylight'
 
+// The detail modal's hourly list is clamped to whichever is narrower: a
+// practical flying-hours window (07:00-20:00) or the date's actual daylight
+// (sunrise-sunset) — so a midsummer day doesn't run 06:00-20:30 and a
+// midwinter day doesn't show pitch-dark hours either.
+const DISPLAY_WINDOW_START_HOUR = 7
+const DISPLAY_WINDOW_END_HOUR = 20
+
+function withinDisplayWindow(time: string): boolean {
+  const hour = parseInt(time.slice(11, 13), 10)
+  return hour >= DISPLAY_WINDOW_START_HOUR && hour <= DISPLAY_WINDOW_END_HOUR
+}
+
 export type ModelId = 'gfs_seamless' | 'icon_seamless' | 'ukmo_seamless' | 'ecmwf_ifs025'
 
 export const MODELS: ModelId[] = ['gfs_seamless', 'icon_seamless', 'ukmo_seamless', 'ecmwf_ifs025']
@@ -146,9 +158,10 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
 
   const sunrise: string | undefined = data.daily?.sunrise?.[0]
   const sunset: string | undefined = data.daily?.sunset?.[0]
-  if (sunrise && sunset) {
-    hours = hours.filter((h) => hourOverlapsDaylight(h.time, sunrise, sunset))
-  }
+  hours = hours.filter((h) => {
+    const inDaylight = sunrise && sunset ? hourOverlapsDaylight(h.time, sunrise, sunset) : true
+    return inDaylight && withinDisplayWindow(h.time)
+  })
 
   return { hours }
 }

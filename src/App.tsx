@@ -87,9 +87,7 @@ function DashboardContent() {
             means a {formatSpeed(4, unit)}
             {UNIT_LABELS[unit]} average with gusts up to {formatSpeed(8, unit)}
             {UNIT_LABELS[unit]}. The bigger that gap, the rougher and more turbulent the air: even when the average
-            looks flyable, big gusts can trigger sudden surges or collapses. As a rule of thumb, gusts more than 1.5x
-            the mean — or above about {formatSpeed(18, unit)}
-            {UNIT_LABELS[unit]} outright — are generally a no-go, and that's built into the status.
+            looks flyable, big gusts can trigger sudden surges or collapses.
           </div>
         </div>
       </header>

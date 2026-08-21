@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import type { Site, SiteConditions } from '../lib/types'
 import { StatusPill } from './StatusPill'
 import { ForecastStrip } from './ForecastStrip'
@@ -9,7 +9,10 @@ import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { refreshSiteConditions } from '../lib/dataStore'
-import { SiteDetailModal } from './SiteDetailModal'
+
+// Code-split — this pulls in Leaflet (~150kB), only worth loading once
+// someone actually opens a site's detail view, not on initial page load.
+const SiteDetailModal = lazy(() => import('./SiteDetailModal').then((m) => ({ default: m.SiteDetailModal })))
 
 export function SiteCard({
   site,
@@ -305,7 +308,11 @@ export function SiteCard({
           </div>
         )}
       </div>
-      {detailOpen && <SiteDetailModal site={site} onClose={() => setDetailOpen(false)} />}
+      {detailOpen && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/40" />}>
+          <SiteDetailModal site={site} onClose={() => setDetailOpen(false)} />
+        </Suspense>
+      )}
     </>
   )
 }

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Site } from '../lib/types'
 import { fetchMultiModelForecast, MODELS, MODEL_LABELS, MODEL_DOT_BG, type MultiModelForecast } from '../lib/multiModel'
 import { computeConfidence, computeThermalIndex, computeCloudbaseFt, metersToFeet } from '../lib/raspProxy'
 import { MultiModelWindRose } from './MultiModelWindRose'
+import { SiteMap } from './SiteMap'
 import { degToCompass, formatHour, currentLondonHourPrefix } from '../lib/format'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
@@ -14,6 +15,10 @@ import { formatSpeed, UNIT_LABELS } from '../lib/units'
 const RASP_BASE_URL = 'https://rasp.stratus.org.uk'
 function raspUrl(turnpoint: string): string {
   return `${RASP_BASE_URL}/${encodeURIComponent(turnpoint)}`
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">{children}</div>
 }
 
 function Stat({ label, value, hint, dotClass }: { label: string; value: string; hint?: string; dotClass?: string }) {
@@ -161,41 +166,59 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
               const freezingFt = metersToFeet(selectedHour.freezingLevelHeightM)
 
               return (
-                <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <Stat
-                    label="Confidence"
-                    value={confidence.label}
-                    hint={`±${Math.round(confidence.speedStddevMph)}mph, ±${Math.round(confidence.directionStddevDeg)}°`}
-                  />
-                  <Stat label="Thermal strength" value={thermal.label} hint={`index ${thermal.index}`} />
-                  <Stat label="Cloudbase" value={cloudbaseFt !== null ? `${cloudbaseFt.toLocaleString()}ft` : 'n/a'} />
-                  <Stat label="Freezing level" value={freezingFt !== null ? `${freezingFt.toLocaleString()}ft` : 'n/a'} />
-                  <Stat
-                    label="Rain chance"
-                    value={selectedHour.precipitationProbabilityPercent !== null ? `${selectedHour.precipitationProbabilityPercent}%` : 'n/a'}
-                  />
-                  <Stat
-                    label="Rain amount"
-                    value={selectedHour.precipitationMm !== null ? `${selectedHour.precipitationMm}mm` : 'n/a'}
-                  />
-                  {MODELS.map((m) => {
-                    const reading = selectedHour.models.find((mm) => mm.model === m)
-                    return (
+                <>
+                  <div className="mt-4">
+                    <SectionLabel>Conditions</SectionLabel>
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                       <Stat
-                        key={m}
-                        label={MODEL_LABELS[m]}
-                        dotClass={MODEL_DOT_BG[m]}
-                        value={
-                          reading?.windSpeedMph != null
-                            ? `${formatSpeed(reading.windSpeedMph, unit)}${UNIT_LABELS[unit]} ${degToCompass(reading.windDirectionDeg ?? 0)}`
-                            : 'n/a'
-                        }
+                        label="Confidence"
+                        value={confidence.label}
+                        hint={`±${Math.round(confidence.speedStddevMph)}mph, ±${Math.round(confidence.directionStddevDeg)}°`}
                       />
-                    )
-                  })}
-                </div>
+                      <Stat label="Thermal strength" value={thermal.label} hint={`index ${thermal.index}`} />
+                      <Stat label="Cloudbase" value={cloudbaseFt !== null ? `${cloudbaseFt.toLocaleString()}ft` : 'n/a'} />
+                      <Stat label="Freezing level" value={freezingFt !== null ? `${freezingFt.toLocaleString()}ft` : 'n/a'} />
+                      <Stat
+                        label="Rain chance"
+                        value={selectedHour.precipitationProbabilityPercent !== null ? `${selectedHour.precipitationProbabilityPercent}%` : 'n/a'}
+                      />
+                      <Stat
+                        label="Rain amount"
+                        value={selectedHour.precipitationMm !== null ? `${selectedHour.precipitationMm}mm` : 'n/a'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <SectionLabel>Per-model wind</SectionLabel>
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                      {MODELS.map((m) => {
+                        const reading = selectedHour.models.find((mm) => mm.model === m)
+                        return (
+                          <Stat
+                            key={m}
+                            label={MODEL_LABELS[m]}
+                            dotClass={MODEL_DOT_BG[m]}
+                            value={
+                              reading?.windSpeedMph != null
+                                ? `${formatSpeed(reading.windSpeedMph, unit)}${UNIT_LABELS[unit]} ${degToCompass(reading.windDirectionDeg ?? 0)}`
+                                : 'n/a'
+                            }
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
               )
             })()}
+
+            {site.lat !== null && site.lon !== null && (
+              <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <SectionLabel>Location</SectionLabel>
+                <SiteMap lat={site.lat} lon={site.lon} name={site.name} />
+              </div>
+            )}
 
             {site.rasp_turnpoint && (
               <a
