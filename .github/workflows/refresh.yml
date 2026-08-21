@@ -1,0 +1,22 @@
+name: Refresh conditions cache
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # every 30 minutes — GitHub may delay this under load, not guaranteed to the minute
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run refresh
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          # Server-side only — never passed to the build/deploy job, never in the client bundle.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
