@@ -7,12 +7,15 @@ export type Status = 'on' | 'marginal' | 'off' | 'unknown'
 
 /**
  * Why a reading is "off" or "marginal", one level more specific than Status —
- * lets the UI distinguish a calm day from a blown-out one from a wrong-direction one.
+ * lets the UI distinguish a blown-out day from a wrong-direction one. There's
+ * no "light" reason: a light breeze on the correct face isn't a go/no-go
+ * signal the way wrong direction or too-strong wind is, so it's folded into
+ * "on" rather than "off" — see speedStatus's too-light branch.
  */
-export type Reason = 'on' | 'marginal' | 'light' | 'too-strong' | 'wrong-direction'
+export type Reason = 'on' | 'marginal' | 'too-strong' | 'wrong-direction'
 
 export interface Thresholds {
-  /** Below this speed it's too light to soar at all. */
+  /** Below this speed there's not enough wind to soar — still "on" if the direction's right (safe to fly, just maybe a sled run), not a go/no-go "off". */
   speedTooLightMph: number
   /** At/above this speed (and below speedOnMaxMph) conditions are "on". */
   speedOnMinMph: number
@@ -26,7 +29,7 @@ export interface Thresholds {
   gustRatioMax: number
   /** Gust speed above this triggers the "gusty" warning badge — doesn't change the on/marginal/off status itself. */
   gustAbsoluteMaxMph: number
-  /** Within this many degrees of either edge of the site's wind arc, direction is "marginal" instead of "on". */
+  /** Within this many degrees of either edge of the site's wind arc, direction is "marginal" instead of "on" — capped at a third of the arc's own span, so a narrow window (e.g. 20-35°) still keeps a genuine "on" zone in the middle instead of being marginal edge-to-edge. */
   directionMarginalDegrees: number
   /** Precipitation probability (%) at/above which status is capped at "marginal". */
   precipMarginalPercent: number
@@ -84,7 +87,8 @@ export function directionStatus(dirDeg: number, window: WindWindow, thresholds: 
   if (!inArc) return 'off'
 
   const distToEdge = Math.min(offset, span - offset)
-  return distToEdge <= thresholds.directionMarginalDegrees ? 'marginal' : 'on'
+  const marginalBuffer = Math.min(thresholds.directionMarginalDegrees, span / 3)
+  return distToEdge <= marginalBuffer ? 'marginal' : 'on'
 }
 
 export function speedStatus(speedMph: number, gustMph: number, window: WindWindow, thresholds: Thresholds): Status {
@@ -94,7 +98,7 @@ export function speedStatus(speedMph: number, gustMph: number, window: WindWindo
   const marginalMax = window.speedMaxMph ?? thresholds.speedMarginalMaxMph
 
   let status: Status
-  if (speedMph < tooLight) status = 'off'
+  if (speedMph < tooLight) status = 'on' // safe direction, just calm — not a go/no-go "off"
   else if (speedMph < onMin) status = 'marginal'
   else if (speedMph <= onMax) status = 'on'
   else if (speedMph <= marginalMax) status = 'marginal'
@@ -133,8 +137,9 @@ export function computeStatus(
 
   let reason: Reason
   if (status === 'off') {
-    const tooLight = window.speedMinMph ?? thresholds.speedTooLightMph
-    reason = direction === 'off' ? 'wrong-direction' : reading.windSpeedMph < tooLight ? 'light' : 'too-strong'
+    // The only ways to be "off" now: wrong direction, or right direction but too strong
+    // (too-light no longer produces "off" — see speedStatus).
+    reason = direction === 'off' ? 'wrong-direction' : 'too-strong'
   } else if (status === 'marginal') {
     reason = 'marginal'
   } else {

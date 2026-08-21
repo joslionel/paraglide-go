@@ -59,7 +59,9 @@ const DEFAULT_THRESHOLDS = {
 }
 
 type Status = 'on' | 'marginal' | 'off'
-type Reason = 'on' | 'marginal' | 'light' | 'too-strong' | 'wrong-direction'
+// No "light" reason — a light breeze on the correct face is "on", not a
+// go/no-go "off" (mirrors src/lib/scoring.ts; keep in sync by hand).
+type Reason = 'on' | 'marginal' | 'too-strong' | 'wrong-direction'
 const severity: Record<Status, number> = { on: 0, marginal: 1, off: 2 }
 const worseOf = (a: Status, b: Status) => (severity[a] >= severity[b] ? a : b)
 
@@ -81,14 +83,18 @@ function computeStatus(
   const offset = (((reading.windDirectionDeg - window.dirMin) % 360) + 360) % 360
   const inArc = span === 0 ? angularDistance(reading.windDirectionDeg, window.dirMin) < 0.01 : offset <= span
   const distToEdge = Math.min(offset, span - offset)
-  const direction: Status = !inArc ? 'off' : distToEdge <= t.directionMarginalDegrees ? 'marginal' : 'on'
+  // Buffer capped at a third of the arc's span so a narrow window (e.g.
+  // 20-35°) keeps a genuine "on" zone instead of being marginal edge-to-edge.
+  const marginalBuffer = Math.min(t.directionMarginalDegrees, span / 3)
+  const direction: Status = !inArc ? 'off' : distToEdge <= marginalBuffer ? 'marginal' : 'on'
 
   const tooLight = window.speedMinMph ?? t.speedTooLightMph
   const onMin = window.speedMinMph ?? t.speedOnMinMph
   const onMax = window.speedMaxMph ?? t.speedOnMaxMph
   const marginalMax = window.speedMaxMph ?? t.speedMarginalMaxMph
   let speed: Status
-  if (reading.windSpeedMph < tooLight) speed = 'off'
+  // Safe direction, just calm — not a go/no-go "off" (mirrors scoring.ts).
+  if (reading.windSpeedMph < tooLight) speed = 'on'
   else if (reading.windSpeedMph < onMin) speed = 'marginal'
   else if (reading.windSpeedMph <= onMax) speed = 'on'
   else if (reading.windSpeedMph <= marginalMax) speed = 'marginal'
@@ -104,7 +110,7 @@ function computeStatus(
 
   let reason: Reason
   if (status === 'off') {
-    reason = direction === 'off' ? 'wrong-direction' : reading.windSpeedMph < tooLight ? 'light' : 'too-strong'
+    reason = direction === 'off' ? 'wrong-direction' : 'too-strong'
   } else if (status === 'marginal') {
     reason = 'marginal'
   } else {

@@ -46,22 +46,22 @@ export const STATUS_TEXT: Record<Status, string> = {
 }
 
 // One level more specific than Status — why a reading is "off" or "marginal".
-// Deliberately does NOT add more hues on top of the 3 status colors (that's
-// what made on/light/wrong-direction hard to tell apart) — instead every "off"
-// reason shares the same critical red and is told apart by icon + label, per
-// the rule that status color never carries meaning alone.
+// No "light" reason: a light breeze on the correct face is "on", not a
+// go/no-go "off" — see scoring.ts. Deliberately does NOT add more hues on
+// top of the 3 status colors (that's what made on/light/wrong-direction hard
+// to tell apart) — instead every "off" reason shares the same critical red
+// and is told apart by icon + label, per the rule that status color never
+// carries meaning alone.
 export const REASON_LABEL: Record<Reason, string> = {
   on: 'On',
   marginal: 'Marginal',
-  light: 'Too light',
-  'too-strong': 'Too strong',
+  'too-strong': 'Too high',
   'wrong-direction': 'Wrong direction',
 }
 
 export const REASON_ICON: Record<Reason, string> = {
   on: '✓',
   marginal: '!',
-  light: '↓',
   'too-strong': '↑',
   'wrong-direction': '⊘',
 }
@@ -69,7 +69,6 @@ export const REASON_ICON: Record<Reason, string> = {
 export const REASON_TEXT: Record<Reason, string> = {
   on: 'text-[#0ca30c]',
   marginal: 'text-[#946200] dark:text-[#fab219]',
-  light: 'text-[#d03b3b]',
   'too-strong': 'text-[#d03b3b]',
   'wrong-direction': 'text-[#d03b3b]',
 }
@@ -77,7 +76,6 @@ export const REASON_TEXT: Record<Reason, string> = {
 export const REASON_DOT_BG: Record<Reason, string> = {
   on: 'bg-[#0ca30c]',
   marginal: 'bg-[#fab219]',
-  light: 'bg-[#d03b3b]',
   'too-strong': 'bg-[#d03b3b]',
   'wrong-direction': 'bg-[#d03b3b]',
 }
@@ -85,7 +83,6 @@ export const REASON_DOT_BG: Record<Reason, string> = {
 export const REASON_ROW_BG: Record<Reason, string> = {
   on: 'bg-[#0ca30c]/10',
   marginal: 'bg-[#fab219]/10',
-  light: 'bg-[#d03b3b]/10',
   'too-strong': 'bg-[#d03b3b]/10',
   'wrong-direction': 'bg-[#d03b3b]/10',
 }

@@ -32,7 +32,7 @@ function onWindows(hours: HourlyCondition[]): string[] {
   return windows
 }
 
-const LEGEND: Reason[] = ['on', 'marginal', 'light', 'too-strong', 'wrong-direction']
+const LEGEND: Reason[] = ['on', 'marginal', 'too-strong', 'wrong-direction']
 
 const ROW_GRID_COLS = 'grid-cols-[1.1rem_2.75rem_2.75rem_2.25rem_2.5rem_2.5rem]'
 
