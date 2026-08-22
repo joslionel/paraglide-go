@@ -32,7 +32,7 @@ export function SiteMap({ lat, lon, name }: { lat: number; lon: number; name: st
     const map = L.map(containerRef.current, {
       center: [lat, lon],
       zoom: DEFAULT_ZOOM,
-      scrollWheelZoom: false,
+      scrollWheelZoom: true,
       attributionControl: true,
     })
     mapRef.current = map

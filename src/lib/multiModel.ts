@@ -56,13 +56,23 @@ export const MODEL_DOT_BG: Record<ModelId, string> = {
 }
 
 // Priority order for single-value ("reference model") quantities that aren't
-// compared across models — thermal-index inputs, cloudbase, precipitation.
-// Verified against a live Open-Meteo call that no one model reliably covers
-// all of these for this region (e.g. ECMWF/ICON returned null
-// boundary_layer_height for every hour tested; GFS had it but not
-// cloud_base; UKMO had cloud_base but not boundary_layer_height) — this
+// compared across models — thermal-index inputs, cloudbase, precipitation,
+// and (via pickReferenceModelReading below) the wind reading used to score
+// each hour on/marginal/off. Verified against a live Open-Meteo call that no
+// one model reliably covers all of these for this region (e.g. ECMWF/ICON
+// returned null boundary_layer_height for every hour tested; GFS had it but
+// not cloud_base; UKMO had cloud_base but not boundary_layer_height) — this
 // falls through the list per variable, per hour, independently.
-const REFERENCE_MODEL_PRIORITY: ModelId[] = ['ecmwf_ifs025', 'gfs_seamless', 'icon_seamless', 'ukmo_seamless']
+export const REFERENCE_MODEL_PRIORITY: ModelId[] = ['ecmwf_ifs025', 'gfs_seamless', 'icon_seamless', 'ukmo_seamless']
+
+/** First model in priority order with a usable speed+direction reading for this hour — speed/gust/direction come from the same model so they're physically self-consistent, unlike averaging across models. */
+export function pickReferenceModelReading(models: ModelReading[]): ModelReading | undefined {
+  for (const modelId of REFERENCE_MODEL_PRIORITY) {
+    const reading = models.find((m) => m.model === modelId)
+    if (reading && reading.windSpeedMph !== null && reading.windDirectionDeg !== null) return reading
+  }
+  return models.find((m) => m.windSpeedMph !== null && m.windDirectionDeg !== null)
+}
 
 const SCALAR_VARIABLES = [
   'cape',
@@ -81,6 +91,7 @@ export interface ModelReading {
   model: ModelId
   windSpeedMph: number | null
   windDirectionDeg: number | null
+  windGustMph: number | null
 }
 
 export interface MultiModelHour {
@@ -107,7 +118,7 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
   url.searchParams.set('latitude', String(lat))
   url.searchParams.set('longitude', String(lon))
   url.searchParams.set('models', MODELS.join(','))
-  url.searchParams.set('hourly', ['wind_speed_10m', 'wind_direction_10m', ...SCALAR_VARIABLES].join(','))
+  url.searchParams.set('hourly', ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', ...SCALAR_VARIABLES].join(','))
   url.searchParams.set('daily', 'sunrise,sunset')
   url.searchParams.set('wind_speed_unit', 'mph')
   url.searchParams.set('forecast_days', '1')
@@ -123,6 +134,7 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
 
   const windSpeed = Object.fromEntries(MODELS.map((m) => [m, getSeries('wind_speed_10m', m)])) as Record<ModelId, (number | null)[]>
   const windDir = Object.fromEntries(MODELS.map((m) => [m, getSeries('wind_direction_10m', m)])) as Record<ModelId, (number | null)[]>
+  const windGust = Object.fromEntries(MODELS.map((m) => [m, getSeries('wind_gusts_10m', m)])) as Record<ModelId, (number | null)[]>
 
   const scalars: Record<string, Record<ModelId, (number | null)[]>> = {}
   for (const variable of SCALAR_VARIABLES) {
@@ -143,6 +155,7 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
       model,
       windSpeedMph: windSpeed[model][i] ?? null,
       windDirectionDeg: windDir[model][i] ?? null,
+      windGustMph: windGust[model][i] ?? null,
     })),
     cape: pickReference('cape', i),
     boundaryLayerHeightM: pickReference('boundary_layer_height', i),

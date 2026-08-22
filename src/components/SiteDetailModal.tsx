@@ -1,12 +1,47 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Site } from '../lib/types'
-import { fetchMultiModelForecast, MODELS, MODEL_LABELS, MODEL_DOT_BG, type MultiModelForecast } from '../lib/multiModel'
+import {
+  fetchMultiModelForecast,
+  pickReferenceModelReading,
+  MODELS,
+  MODEL_LABELS,
+  MODEL_DOT_BG,
+  type MultiModelForecast,
+  type MultiModelHour,
+} from '../lib/multiModel'
 import { computeConfidence, computeThermalIndex, computeCloudbaseFt, metersToFeet } from '../lib/raspProxy'
+import { computeStatus, type Reason } from '../lib/scoring'
+import { REASON_ROW_BG, REASON_TEXT, REASON_ICON, REASON_LABEL } from './StatusPill'
 import { MultiModelWindRose } from './MultiModelWindRose'
 import { SiteMap } from './SiteMap'
 import { degToCompass, formatHour, currentLondonHourPrefix } from '../lib/format'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
+
+/**
+ * Scores one hour the same on/marginal/off way the rest of the app does,
+ * using whichever model's speed+direction+gust is available first in
+ * REFERENCE_MODEL_PRIORITY (self-consistent — mixing speed from one model
+ * with direction from another would be physically meaningless). Returns
+ * null when there's nothing to score (no site window on file, or every
+ * model came back null for this hour).
+ */
+function scoreHour(hour: MultiModelHour, site: Site): { reason: Reason } | null {
+  if (site.wind_dir_min === null || site.wind_dir_max === null) return null
+  const reference = pickReferenceModelReading(hour.models)
+  if (!reference || reference.windSpeedMph === null || reference.windDirectionDeg === null) return null
+
+  const { reason } = computeStatus(
+    {
+      windSpeedMph: reference.windSpeedMph,
+      windGustMph: reference.windGustMph ?? reference.windSpeedMph,
+      windDirectionDeg: reference.windDirectionDeg,
+      precipitationProbabilityPercent: hour.precipitationProbabilityPercent ?? 0,
+    },
+    { dirMin: site.wind_dir_min, dirMax: site.wind_dir_max, speedMinMph: site.wind_speed_min_mph, speedMaxMph: site.wind_speed_max_mph }
+  )
+  return { reason }
+}
 
 // Best guess at rasp.stratus.org.uk's turnpoint page URL scheme — not
 // independently verified against the live site. `rasp_turnpoint` should
@@ -128,25 +163,49 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
                 </div>
               </div>
 
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-100 dark:border-slate-800">
-                {forecast!.hours.map((h, i) => {
-                  const validSpeeds = h.models.map((m) => m.windSpeedMph).filter((v): v is number => v !== null)
-                  const avgSpeed = validSpeeds.length ? validSpeeds.reduce((a, b) => a + b, 0) / validSpeeds.length : null
-                  return (
-                    <button
-                      key={h.time}
-                      onClick={() => setSelectedIndex(i)}
-                      className={`flex w-full cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs ${
-                        i === selectedIndex ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                      }`}
-                    >
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{formatHour(h.time)}</span>
-                      <span className="text-slate-500 dark:text-slate-400">
-                        {avgSpeed !== null ? `${formatSpeed(avgSpeed, unit)}${UNIT_LABELS[unit]} avg` : 'n/a'}
+              <div>
+                <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  {(['on', 'marginal', 'too-strong', 'wrong-direction'] as Reason[]).map((r) => (
+                    <span key={r} className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                      <span className={`font-bold ${REASON_TEXT[r]}`} aria-hidden="true">
+                        {REASON_ICON[r]}
                       </span>
-                    </button>
-                  )
-                })}
+                      {REASON_LABEL[r]}
+                    </span>
+                  ))}
+                </div>
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-100 dark:border-slate-800">
+                  {forecast!.hours.map((h, i) => {
+                    const reference = pickReferenceModelReading(h.models)
+                    const scored = scoreHour(h, site)
+                    return (
+                      <button
+                        key={h.time}
+                        onClick={() => setSelectedIndex(i)}
+                        className={`grid w-full cursor-pointer grid-cols-[1.1rem_2.75rem_1fr] items-center gap-2 px-2.5 py-1.5 text-left text-xs ${
+                          scored ? REASON_ROW_BG[scored.reason] : ''
+                        } ${
+                          i === selectedIndex
+                            ? 'ring-1 ring-inset ring-slate-400 dark:ring-slate-500'
+                            : 'hover:ring-1 hover:ring-inset hover:ring-slate-200 dark:hover:ring-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`text-center font-bold ${scored ? REASON_TEXT[scored.reason] : 'text-slate-300 dark:text-slate-600'}`}
+                          aria-hidden="true"
+                        >
+                          {scored ? REASON_ICON[scored.reason] : '·'}
+                        </span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">{formatHour(h.time)}</span>
+                        <span className="text-right text-slate-500 dark:text-slate-400">
+                          {reference?.windSpeedMph != null
+                            ? `${formatSpeed(reference.windSpeedMph, unit)}${UNIT_LABELS[unit]} ${degToCompass(reference.windDirectionDeg ?? 0)}`
+                            : 'n/a'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 
