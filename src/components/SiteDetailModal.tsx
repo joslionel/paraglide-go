@@ -14,7 +14,7 @@ import { computeStatus, type Reason } from '../lib/scoring'
 import { REASON_ROW_BG, REASON_TEXT, REASON_ICON, REASON_LABEL } from './StatusPill'
 import { MultiModelWindRose } from './MultiModelWindRose'
 import { SiteMap } from './SiteMap'
-import { degToCompass, formatHour, currentLondonHourPrefix } from '../lib/format'
+import { degToCompass, formatHour, formatDayLabel, isToday, currentLondonHourPrefix } from '../lib/format'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 
@@ -69,7 +69,23 @@ function Stat({ label, value, hint, dotClass }: { label: string; value: string; 
   )
 }
 
-export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void }) {
+/** Index of the hour closest to a target hour-of-day — used to pick a sensible default for a future day, where "now" doesn't mean anything. */
+function closestHourIndex(hours: MultiModelHour[], targetHour: number): number {
+  let best = 0
+  let bestDiff = Infinity
+  hours.forEach((h, i) => {
+    const diff = Math.abs(parseInt(h.time.slice(11, 13), 10) - targetHour)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = i
+    }
+  })
+  return best
+}
+
+const DEFAULT_AFTERNOON_HOUR = 13
+
+export function SiteDetailModal({ site, onClose, dayOffset = 0 }: { site: Site; onClose: () => void; dayOffset?: number }) {
   const { unit } = useUnit()
   const [forecast, setForecast] = useState<MultiModelForecast | null>(null)
   const [loading, setLoading] = useState(true)
@@ -86,13 +102,18 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
     setLoading(true)
     setError('')
 
-    fetchMultiModelForecast(site.lat, site.lon)
+    fetchMultiModelForecast(site.lat, site.lon, dayOffset)
       .then((result) => {
         if (cancelled) return
         setForecast(result)
-        const nowPrefix = currentLondonHourPrefix()
-        const idx = result.hours.findIndex((h) => h.time.startsWith(nowPrefix))
-        setSelectedIndex(idx >= 0 ? idx : 0)
+        if (dayOffset === 0) {
+          const nowPrefix = currentLondonHourPrefix()
+          const idx = result.hours.findIndex((h) => h.time.startsWith(nowPrefix))
+          setSelectedIndex(idx >= 0 ? idx : closestHourIndex(result.hours, DEFAULT_AFTERNOON_HOUR))
+        } else {
+          // A future day has no "now" — default to a representative early-afternoon hour instead.
+          setSelectedIndex(closestHourIndex(result.hours, DEFAULT_AFTERNOON_HOUR))
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load forecast')
@@ -104,7 +125,7 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
     return () => {
       cancelled = true
     }
-  }, [site.lat, site.lon])
+  }, [site.lat, site.lon, dayOffset])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -123,7 +144,10 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{site.name}</h2>
-            <p className="text-xs text-slate-400">Today only — multi-model wind confidence, thermal estimate, cloudbase</p>
+            <p className="text-xs text-slate-400">
+              {forecast ? (isToday(forecast.date) ? 'Today' : formatDayLabel(forecast.date)) : dayOffset === 0 ? 'Today' : ''} — multi-model
+              wind confidence, thermal estimate, cloudbase
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -143,7 +167,9 @@ export function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => 
         )}
 
         {!loading && !error && forecast?.hours.length === 0 && (
-          <p className="mt-6 text-sm text-slate-400">No daylight hours left today.</p>
+          <p className="mt-6 text-sm text-slate-400">
+            {dayOffset === 0 ? 'No daylight hours left today.' : 'No daylight hours in the flying-hours window for that day.'}
+          </p>
         )}
 
         {!loading && !error && selectedHour && (

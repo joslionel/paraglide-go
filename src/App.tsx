@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getSites, getConditions, isSupabaseConfigured } from './lib/dataStore'
+import { getSites, getConditions, getPinnedSlugs, isSupabaseConfigured, MAX_PINS } from './lib/dataStore'
 import type { Site, ConditionsCache, SiteConditions } from './lib/types'
 import { SiteCard } from './components/SiteCard'
 import { UserMenu } from './components/UserMenu'
 import { AddSiteForm } from './components/AddSiteForm'
 import { UnitToggle } from './components/UnitToggle'
+import { PinnedDashboard } from './components/PinnedDashboard'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
 
-type Filter = 'all' | 'open' | 'members'
+type Filter = 'all' | 'open' | 'members' | 'pinned'
 
 function DashboardContent() {
   const { user } = useAuth()
@@ -19,6 +20,7 @@ function DashboardContent() {
   const [sitesError, setSitesError] = useState<string | null>(null)
   const [conditionsError, setConditionsError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  const [pinnedSlugs, setPinnedSlugs] = useState<string[]>([])
 
   const loadSites = useCallback(() => {
     getSites()
@@ -29,15 +31,30 @@ function DashboardContent() {
       .catch((err) => setSitesError(err.message))
   }, [])
 
+  const loadPinned = useCallback(() => {
+    if (!user) {
+      setPinnedSlugs([])
+      return
+    }
+    getPinnedSlugs(user.id)
+      .then(setPinnedSlugs)
+      .catch(() => setPinnedSlugs([]))
+  }, [user])
+
   useEffect(() => {
     loadSites()
+    loadPinned()
     getConditions()
       .then((c) => {
         setConditions(c)
         setConditionsError(null)
       })
       .catch((err) => setConditionsError(err.message))
-  }, [loadSites, user])
+  }, [loadSites, loadPinned, user])
+
+  useEffect(() => {
+    if (!user && filter === 'pinned') setFilter('all')
+  }, [user, filter])
 
   const mergeConditions = useCallback((slug: string, siteConditions: SiteConditions) => {
     setConditions((prev) => ({
@@ -53,6 +70,7 @@ function DashboardContent() {
   })
 
   const customSiteCount = user ? sites.filter((s) => s.is_custom && s.owner_id === user.id).length : 0
+  const pinnedSites = pinnedSlugs.map((slug) => sites.find((s) => s.slug === slug)).filter((s): s is Site => Boolean(s))
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -95,7 +113,7 @@ function DashboardContent() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-1.5">
-            {(['all', 'open', 'members'] as Filter[]).map((f) => (
+            {(['all', 'open', 'members', ...(user ? (['pinned'] as Filter[]) : [])] as Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -105,17 +123,17 @@ function DashboardContent() {
                     : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}
               >
-                {f === 'all' ? 'All sites' : f === 'open' ? 'Open' : 'Members only'}
+                {f === 'all' ? 'All sites' : f === 'open' ? 'Open' : f === 'members' ? 'Members only' : '★ My Dashboard'}
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && (
+          {isSupabaseConfigured && user && filter !== 'pinned' && (
             <AddSiteForm remaining={5 - customSiteCount} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
           )}
         </div>
 
         {isSupabaseConfigured && !user && (
-          <p className="mb-4 text-xs text-slate-400">Log in to see members-only and member-added sites.</p>
+          <p className="mb-4 text-xs text-slate-400">Log in to see members-only and member-added sites, and to pin favorites.</p>
         )}
 
         {sitesError && (
@@ -130,17 +148,24 @@ function DashboardContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleSites.map((site) => (
-            <SiteCard
-              key={site.slug}
-              site={site}
-              conditions={conditions?.sites[site.slug]}
-              onChanged={loadSites}
-              onConditionsRefreshed={mergeConditions}
-            />
-          ))}
-        </div>
+        {filter === 'pinned' ? (
+          <PinnedDashboard pinnedSites={pinnedSites} conditions={conditions} />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleSites.map((site) => (
+              <SiteCard
+                key={site.slug}
+                site={site}
+                conditions={conditions?.sites[site.slug]}
+                onChanged={loadSites}
+                onConditionsRefreshed={mergeConditions}
+                isPinned={pinnedSlugs.includes(site.slug)}
+                pinDisabled={pinnedSlugs.length >= MAX_PINS}
+                onPinChanged={loadPinned}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )

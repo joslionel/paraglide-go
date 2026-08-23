@@ -25,3 +25,16 @@ export function wedgePath(centerX: number, centerY: number, startDeg: number, sp
   const largeArc = spanDeg > 180 ? 1 : 0
   return `M ${centerX} ${centerY} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`
 }
+
+/** Just the curved band at radius r, no lines back to center — for stacking several sites' windows as concentric rings rather than overlapping wedges. */
+export function arcPath(centerX: number, centerY: number, startDeg: number, spanDeg: number, r: number): string {
+  if (spanDeg >= 360) {
+    const top = toXY(centerX, centerY, startDeg, r)
+    const bottom = toXY(centerX, centerY, startDeg + 180, r)
+    return `M ${top.x} ${top.y} A ${r} ${r} 0 1 1 ${bottom.x} ${bottom.y} A ${r} ${r} 0 1 1 ${top.x} ${top.y}`
+  }
+  const start = toXY(centerX, centerY, startDeg, r)
+  const end = toXY(centerX, centerY, startDeg + spanDeg, r)
+  const largeArc = spanDeg > 180 ? 1 : 0
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`
+}

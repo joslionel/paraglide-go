@@ -17,7 +17,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const FORECAST_DAYS = 5
+const FORECAST_DAYS = 7 // the pinned-sites dashboard shows a 7-day grid
 const SINGLE_SITE_COOLDOWN_MS = 2 * 60 * 1000 // avoid refetching if a card was just refreshed
 
 const CORS_HEADERS = {

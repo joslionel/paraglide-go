@@ -1,8 +1,10 @@
 // Multi-model Open-Meteo fetch for the site detail modal only — lazy-loaded
 // (called from a useEffect gated on the modal being open), one request per
-// expand, today only. Unlike the rest of the app, this runs client-side:
-// it's the first place the browser calls Open-Meteo directly rather than
-// reading a precomputed cache (see dataStore.ts's header comment).
+// expand, for a single day (today by default, or any of the next 7 via
+// dayOffset from the pinned-sites dashboard grid). Unlike the rest of the
+// app, this runs client-side: it's the first place the browser calls
+// Open-Meteo directly rather than reading a precomputed cache (see
+// dataStore.ts's header comment).
 import { hourOverlapsDaylight } from './daylight'
 
 // The detail modal's hourly list is clamped to whichever is narrower: a
@@ -110,10 +112,16 @@ export interface MultiModelHour {
 }
 
 export interface MultiModelForecast {
-  hours: MultiModelHour[] // daylight-trimmed, today only
+  date: string // YYYY-MM-DD, the day these hours belong to
+  hours: MultiModelHour[] // daylight-trimmed
 }
 
-export async function fetchMultiModelForecast(lat: number, lon: number): Promise<MultiModelForecast> {
+/**
+ * @param dayOffset 0 = today, 1 = tomorrow, ... up to 6 (the dashboard's
+ *   7-day grid). Fetches only as many days as needed for the requested one —
+ *   asking for day 6 pulls 7 days total, not a fixed max every time.
+ */
+export async function fetchMultiModelForecast(lat: number, lon: number, dayOffset = 0): Promise<MultiModelForecast> {
   const url = new URL('https://api.open-meteo.com/v1/forecast')
   url.searchParams.set('latitude', String(lat))
   url.searchParams.set('longitude', String(lon))
@@ -121,7 +129,7 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
   url.searchParams.set('hourly', ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', ...SCALAR_VARIABLES].join(','))
   url.searchParams.set('daily', 'sunrise,sunset')
   url.searchParams.set('wind_speed_unit', 'mph')
-  url.searchParams.set('forecast_days', '1')
+  url.searchParams.set('forecast_days', String(dayOffset + 1))
   url.searchParams.set('timezone', 'Europe/London')
 
   const res = await fetch(url.toString())
@@ -169,12 +177,14 @@ export async function fetchMultiModelForecast(lat: number, lon: number): Promise
     precipitationMm: pickReference('precipitation', i),
   }))
 
-  const sunrise: string | undefined = data.daily?.sunrise?.[0]
-  const sunset: string | undefined = data.daily?.sunset?.[0]
+  const targetDate: string = data.daily.time[dayOffset]
+  const sunrise: string | undefined = data.daily?.sunrise?.[dayOffset]
+  const sunset: string | undefined = data.daily?.sunset?.[dayOffset]
   hours = hours.filter((h) => {
+    const sameDay = h.time.slice(0, 10) === targetDate
     const inDaylight = sunrise && sunset ? hourOverlapsDaylight(h.time, sunrise, sunset) : true
-    return inDaylight && withinDisplayWindow(h.time)
+    return sameDay && inDaylight && withinDisplayWindow(h.time)
   })
 
-  return { hours }
+  return { date: targetDate, hours }
 }

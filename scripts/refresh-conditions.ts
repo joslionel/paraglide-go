@@ -22,7 +22,7 @@ try {
   // no .env yet — fine, local-JSON mode doesn't need one
 }
 
-const FORECAST_DAYS = 5
+const FORECAST_DAYS = 7 // the pinned-sites dashboard shows a 7-day grid
 
 /** Open-Meteo's hourly times are local (Europe/London); match "now" in that same zone. */
 function currentLondonHourPrefix(): string {

@@ -1,29 +1,34 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import type { Site, SiteConditions } from '../lib/types'
 import { StatusPill } from './StatusPill'
 import { ForecastStrip } from './ForecastStrip'
 import { WindRose } from './WindRose'
+import { LazySiteDetailModal as SiteDetailModal } from './LazySiteDetailModal'
 import { degToCompass, formatWindWindow } from '../lib/format'
 import { useAuth } from '../lib/AuthContext'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { refreshSiteConditions } from '../lib/dataStore'
-
-// Code-split — this pulls in Leaflet (~150kB), only worth loading once
-// someone actually opens a site's detail view, not on initial page load.
-const SiteDetailModal = lazy(() => import('./SiteDetailModal').then((m) => ({ default: m.SiteDetailModal })))
+import { refreshSiteConditions, pinSite, unpinSite } from '../lib/dataStore'
 
 export function SiteCard({
   site,
   conditions,
   onChanged,
   onConditionsRefreshed,
+  isPinned = false,
+  pinDisabled = false,
+  onPinChanged,
 }: {
   site: Site
   conditions: SiteConditions | undefined
   onChanged: () => void
   onConditionsRefreshed: (slug: string, conditions: SiteConditions) => void
+  /** Whether this site is one of the signed-in user's pins (My Dashboard tab). */
+  isPinned?: boolean
+  /** True when the user is at the 5-pin cap and this site isn't already pinned — disables the pin button rather than letting a doomed insert hit the server. */
+  pinDisabled?: boolean
+  onPinChanged?: () => void
 }) {
   const { user } = useAuth()
   const { unit } = useUnit()
@@ -38,11 +43,29 @@ export function SiteCard({
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const [detailOpen, setDetailOpen] = useState(false)
+  const [pinning, setPinning] = useState(false)
+  const [pinError, setPinError] = useState('')
 
   const now = conditions?.now
   const status = now?.status ?? 'unknown'
   const canEdit = Boolean(user) && isSupabaseConfigured
   const canDelete = canEdit && site.is_custom && site.owner_id === user?.id
+  const canPin = Boolean(user) && isSupabaseConfigured
+
+  const togglePin = async () => {
+    if (!user) return
+    setPinning(true)
+    setPinError('')
+    try {
+      if (isPinned) await unpinSite(user.id, site.slug)
+      else await pinSite(user.id, site.slug)
+      onPinChanged?.()
+    } catch (err) {
+      setPinError(err instanceof Error ? err.message : 'Failed to update pin')
+    } finally {
+      setPinning(false)
+    }
+  }
 
   const doRefresh = async () => {
     setRefreshing(true)
@@ -207,6 +230,25 @@ export function SiteCard({
                   ✎
                 </button>
               )}
+              {canPin && (
+                <button
+                  onClick={togglePin}
+                  disabled={pinning || (pinDisabled && !isPinned)}
+                  aria-label={isPinned ? `Unpin ${site.name}` : `Pin ${site.name}`}
+                  title={
+                    isPinned
+                      ? 'Unpin from My Dashboard'
+                      : pinDisabled
+                        ? 'You can pin up to 5 sites — unpin one first'
+                        : 'Pin to My Dashboard'
+                  }
+                  className={`cursor-pointer text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isPinned ? 'text-[#fab219]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {isPinned ? '★' : '☆'}
+                </button>
+              )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
               <span>{site.grid_ref ?? 'grid ref n/a'}</span>
@@ -280,6 +322,7 @@ export function SiteCard({
           </div>
         )}
         {refreshError && <p className="mt-1 text-xs text-[#d03b3b]">{refreshError}</p>}
+        {pinError && <p className="mt-1 text-xs text-[#d03b3b]">{pinError}</p>}
   
         {conditions && conditions.daily.length > 0 && (
           <div className="mt-4">

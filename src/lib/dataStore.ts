@@ -58,4 +58,26 @@ export async function refreshSiteConditions(slug: string): Promise<SiteCondition
   return data.conditions as SiteConditions
 }
 
-export { isSupabaseConfigured }
+const MAX_PINS = 5
+
+/** Slugs the given user has pinned (My Dashboard tab). Supabase-only — no local-JSON pin concept, since pinning requires an account. */
+export async function getPinnedSlugs(userId: string): Promise<string[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('pinned_sites').select('slug').eq('user_id', userId)
+  if (error) throw new Error(`Failed to load pinned sites: ${error.message}`)
+  return (data ?? []).map((row) => row.slug as string)
+}
+
+export async function pinSite(userId: string, slug: string): Promise<void> {
+  if (!supabase) throw new Error('Pinning requires Supabase to be configured')
+  const { error } = await supabase.from('pinned_sites').insert({ user_id: userId, slug })
+  if (error) throw new Error(error.message)
+}
+
+export async function unpinSite(userId: string, slug: string): Promise<void> {
+  if (!supabase) throw new Error('Pinning requires Supabase to be configured')
+  const { error } = await supabase.from('pinned_sites').delete().eq('user_id', userId).eq('slug', slug)
+  if (error) throw new Error(error.message)
+}
+
+export { isSupabaseConfigured, MAX_PINS }
