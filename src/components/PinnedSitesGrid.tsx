@@ -1,9 +1,9 @@
 import { Fragment } from 'react'
 import type { Site, ConditionsCache } from '../lib/types'
-import { STATUS_DOT_BG } from './StatusPill'
+import { STATUS_DOT_BG, STATUS_SOLID_TEXT, STATUS_LABEL } from './StatusPill'
 import { formatDayLabel, isToday } from '../lib/format'
 
-const GRID_COLS = 'grid-cols-[minmax(110px,1fr)_repeat(7,minmax(40px,1fr))]'
+const GRID_COLS = 'grid-cols-[minmax(110px,1fr)_repeat(7,minmax(60px,1fr))]'
 
 export function PinnedSitesGrid({
   sites,
@@ -31,7 +31,7 @@ export function PinnedSitesGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div className={`grid ${GRID_COLS} min-w-[560px] gap-y-1.5`}>
+      <div className={`grid ${GRID_COLS} min-w-[620px] gap-1.5`}>
         <div />
         {dayDates.map((date) => (
           <div key={date} className="text-center text-[11px] text-slate-500 dark:text-slate-400">
@@ -52,9 +52,11 @@ export function PinnedSitesGrid({
                     onClick={() => onOpenDay(site, dayOffset)}
                     disabled={!day}
                     title={day ? `${site.name} — ${formatDayLabel(date)}: ${day.status}` : 'No data yet'}
-                    className="flex cursor-pointer items-center justify-center rounded-md py-1.5 hover:bg-slate-100 disabled:cursor-not-allowed dark:hover:bg-slate-800"
+                    className={`flex cursor-pointer items-center justify-center rounded-md py-2.5 text-[11px] font-semibold disabled:cursor-not-allowed ${
+                      day ? `${STATUS_DOT_BG[day.status]} ${STATUS_SOLID_TEXT[day.status]} hover:opacity-85` : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600'
+                    }`}
                   >
-                    <span className={`h-3 w-3 rounded-full ${day ? STATUS_DOT_BG[day.status] : 'bg-slate-200 dark:bg-slate-700'}`} />
+                    {day ? STATUS_LABEL[day.status] : '–'}
                   </button>
                 )
               })}

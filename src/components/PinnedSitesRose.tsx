@@ -2,20 +2,20 @@ import type { Reason } from '../lib/scoring'
 import { REASON_TEXT } from './StatusPill'
 import { toXY, arcPath } from '../lib/polar'
 
-const SIZE = 340
+const SIZE = 300
 const CENTER = SIZE / 2
-const INNER_RADIUS = 42
-const RING_SPACING = 24
-const RING_STROKE = 7
-const LABEL_OFFSET = RING_STROKE / 2 + 8 // clear of the ring's own stroke width, not drawn on top of it
+const INNER_RADIUS = 36
+const RING_SPACING = 20
+const RING_STROKE = 16
 
-// Outermost ring + its label must stay inside CENTER, or a 5th pinned site's
-// name renders off the edge of the canvas — this assertion catches that at
-// dev time if the constants above ever get tuned back out of bounds.
+// Outermost ring must stay inside CENTER (with room for its label, which now
+// sits on top of the band rather than outside it) or a 5th pinned site's ring
+// renders off the edge of the canvas — this assertion catches that at dev
+// time if the constants above ever get tuned back out of bounds.
 if (import.meta.env.DEV) {
-  const outermost = INNER_RADIUS + 4 * RING_SPACING + LABEL_OFFSET
+  const outermost = INNER_RADIUS + 4 * RING_SPACING + RING_STROKE / 2
   if (outermost >= CENTER) {
-    console.warn(`PinnedSitesRose: outermost label radius (${outermost}) reaches the canvas edge (${CENTER}) — labels may clip.`)
+    console.warn(`PinnedSitesRose: outermost ring edge (${outermost}) reaches the canvas edge (${CENTER}) — it may clip.`)
   }
 }
 
@@ -26,7 +26,6 @@ if (import.meta.env.DEV) {
 // Written out literally (not built from a shared hex array) so Tailwind's
 // source-text scanner picks up every class — same reason StatusPill.tsx's
 // REASON_* maps and multiModel.ts's MODEL_* maps are spelled out per-key.
-const SITE_TEXT_CLASS = ['text-[#0d9488]', 'text-[#db2777]', 'text-[#4f46e5]', 'text-[#0891b2]', 'text-[#c026d3]']
 const SITE_STROKE_CLASS = ['stroke-[#0d9488]', 'stroke-[#db2777]', 'stroke-[#4f46e5]', 'stroke-[#0891b2]', 'stroke-[#c026d3]']
 
 export interface PinnedRoseSite {
@@ -43,8 +42,10 @@ export interface PinnedRoseSite {
  * site's flyable-direction window as a colored arc band at its own radius
  * (not a wedge from center — wedges from 5 different sites would just
  * overlap into a solid mess) plus a dot for that site's current wind
- * direction, colored the usual on/marginal/off way. A short label sits just
- * outside each ring at the arc's midpoint.
+ * direction, colored the usual on/marginal/off way. The site name is set
+ * directly into the band at the arc's midpoint (white text, near-solid fill
+ * behind it for contrast) rather than floating outside the ring, so the
+ * whole thing reads as a labelled band instead of a ring + a nearby caption.
  */
 export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[]; size?: number }) {
   return (
@@ -59,7 +60,7 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
         const hasWindow = site.dirMin !== null && site.dirMax !== null
         const span = hasWindow ? ((site.dirMax! - site.dirMin! + 360) % 360) || 360 : 0
         const midAngle = hasWindow ? site.dirMin! + span / 2 : 0
-        const labelPt = toXY(CENTER, CENTER, midAngle, r + LABEL_OFFSET)
+        const labelPt = toXY(CENTER, CENTER, midAngle, r)
         const needleColor = site.currentReason ? REASON_TEXT[site.currentReason] : 'text-slate-400'
         const needleTip = site.currentDir != null ? toXY(CENTER, CENTER, site.currentDir, r) : null
 
@@ -74,12 +75,12 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
                 strokeWidth={RING_STROKE}
                 strokeLinecap="round"
                 className={SITE_STROKE_CLASS[i % SITE_STROKE_CLASS.length]}
-                opacity={0.55}
+                opacity={0.85}
               />
             )}
 
             {needleTip && (
-              <circle cx={needleTip.x} cy={needleTip.y} r={4} className={needleColor} fill="currentColor" stroke="white" strokeWidth={1} />
+              <circle cx={needleTip.x} cy={needleTip.y} r={5} className={needleColor} fill="currentColor" stroke="white" strokeWidth={1.5} />
             )}
 
             {hasWindow && (
@@ -88,11 +89,12 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
                 y={labelPt.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={8}
-                fontWeight={600}
-                className={`${SITE_TEXT_CLASS[i % SITE_TEXT_CLASS.length]} select-none`}
+                fontSize={9}
+                fontWeight={700}
+                className="fill-white select-none"
+                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 2 }}
               >
-                {site.name.length > 14 ? `${site.name.slice(0, 13)}…` : site.name}
+                {site.name.length > 12 ? `${site.name.slice(0, 11)}…` : site.name}
               </text>
             )}
           </g>

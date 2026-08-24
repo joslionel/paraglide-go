@@ -242,7 +242,7 @@ export function SiteCard({
                         ? 'You can pin up to 5 sites — unpin one first'
                         : 'Pin to My Dashboard'
                   }
-                  className={`cursor-pointer text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`cursor-pointer text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40 ${
                     isPinned ? 'text-[#fab219]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                   }`}
                 >

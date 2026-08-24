@@ -14,7 +14,7 @@ const STYLES: Record<Status, string> = {
   unknown: 'bg-[#8b8d98]/15 text-[#8b8d98] border-[#8b8d98]/40',
 }
 
-const LABELS: Record<Status, string> = {
+export const STATUS_LABEL: Record<Status, string> = {
   on: 'On',
   marginal: 'Marginal',
   off: 'Off',
@@ -26,7 +26,7 @@ export function StatusPill({ status, size = 'md' }: { status: Status; size?: 'sm
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${STYLES[status]} ${sizeClasses}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {LABELS[status]}
+      {STATUS_LABEL[status]}
     </span>
   )
 }
@@ -36,6 +36,16 @@ export const STATUS_DOT_BG: Record<Status, string> = {
   marginal: 'bg-[#fab219]',
   off: 'bg-[#d03b3b]',
   unknown: 'bg-[#8b8d98]',
+}
+
+// Text color for use ON TOP of the solid STATUS_DOT_BG fills above (e.g. a
+// fully-colored grid cell) — amber is light enough that white text fails
+// contrast, so marginal gets dark text while on/off/unknown get white.
+export const STATUS_SOLID_TEXT: Record<Status, string> = {
+  on: 'text-white',
+  marginal: 'text-slate-900',
+  off: 'text-white',
+  unknown: 'text-white',
 }
 
 export const STATUS_TEXT: Record<Status, string> = {
