@@ -1,21 +1,29 @@
-import type { Reason } from '../lib/scoring'
-import { REASON_TEXT } from './StatusPill'
 import { toXY, arcPath, labelArcPath } from '../lib/polar'
 
-const SIZE = 300
+const SIZE = 320
 const CENTER = SIZE / 2
 const INNER_RADIUS = 36
 const RING_SPACING = 20
 const RING_STROKE = 16
+const ORBIT_RADII = Array.from({ length: 5 }, (_, i) => INNER_RADIUS + i * RING_SPACING)
+const DISC_RADIUS = CENTER - 2
+const COMPASS_TICK_INNER = ORBIT_RADII[4] + RING_STROKE / 2 + 4
+const COMPASS_TICK_OUTER = COMPASS_TICK_INNER + 6
+const CARDINAL_LABEL_RADIUS = COMPASS_TICK_OUTER + 9
+const MINOR_LABEL_RADIUS = COMPASS_TICK_OUTER + 7
 
-// Outermost ring must stay inside CENTER (with room for its label, which now
-// sits on top of the band rather than outside it) or a 5th pinned site's ring
-// renders off the edge of the canvas — this assertion catches that at dev
-// time if the constants above ever get tuned back out of bounds.
+// Both the outermost ring and the compass labels around it must stay inside
+// CENTER, or a 5th pinned site's ring / the N-S-E-W labels render off the
+// edge of the canvas — this assertion catches that at dev time if the
+// constants above ever get tuned back out of bounds.
 if (import.meta.env.DEV) {
-  const outermost = INNER_RADIUS + 4 * RING_SPACING + RING_STROKE / 2
-  if (outermost >= CENTER) {
-    console.warn(`PinnedSitesRose: outermost ring edge (${outermost}) reaches the canvas edge (${CENTER}) — it may clip.`)
+  const outermostRing = ORBIT_RADII[4] + RING_STROKE / 2
+  const outermostLabel = CARDINAL_LABEL_RADIUS + 6 // rough half-height of the bold cardinal labels
+  if (outermostRing >= CENTER) {
+    console.warn(`PinnedSitesRose: outermost ring edge (${outermostRing}) reaches the canvas edge (${CENTER}) — it may clip.`)
+  }
+  if (outermostLabel >= CENTER) {
+    console.warn(`PinnedSitesRose: compass label radius (${outermostLabel}) reaches the canvas edge (${CENTER}) — labels may clip.`)
   }
 }
 
@@ -28,48 +36,97 @@ if (import.meta.env.DEV) {
 // REASON_* maps and multiModel.ts's MODEL_* maps are spelled out per-key.
 const SITE_STROKE_CLASS = ['stroke-[#0d9488]', 'stroke-[#db2777]', 'stroke-[#4f46e5]', 'stroke-[#0891b2]', 'stroke-[#c026d3]']
 
+// The 16-point compass, drawn as background context behind the ring stack.
+// Cardinals render bold and larger; the rest (including the secondary
+// intercardinals like NNW/WNW the user asked for) render smaller and lighter
+// so they read as reference points, not competing labels.
+const COMPASS_POINTS = [
+  { label: 'N', angle: 0 },
+  { label: 'NNE', angle: 22.5 },
+  { label: 'NE', angle: 45 },
+  { label: 'ENE', angle: 67.5 },
+  { label: 'E', angle: 90 },
+  { label: 'ESE', angle: 112.5 },
+  { label: 'SE', angle: 135 },
+  { label: 'SSE', angle: 157.5 },
+  { label: 'S', angle: 180 },
+  { label: 'SSW', angle: 202.5 },
+  { label: 'SW', angle: 225 },
+  { label: 'WSW', angle: 247.5 },
+  { label: 'W', angle: 270 },
+  { label: 'WNW', angle: 292.5 },
+  { label: 'NW', angle: 315 },
+  { label: 'NNW', angle: 337.5 },
+]
+const CARDINALS = new Set(['N', 'E', 'S', 'W'])
+
 export interface PinnedRoseSite {
   slug: string
   name: string
   dirMin: number | null
   dirMax: number | null
-  currentDir?: number | null
-  currentReason?: Reason
 }
 
 /**
  * One ring per pinned site (innermost = first pinned), each showing that
  * site's flyable-direction window as a colored arc band at its own radius
  * (not a wedge from center — wedges from 5 different sites would just
- * overlap into a solid mess) plus a dot for that site's current wind
- * direction, colored the usual on/marginal/off way. The site name curves
- * along the band itself, following an invisible per-ring text path centered
- * on the window's midpoint, so it reads clearly even when two rings' windows
- * point the same way (labels used to be flat text and would overlap when
- * tightly spaced).
+ * overlap into a solid mess). The site name curves along the band itself,
+ * following an invisible per-ring text path centered on the window's
+ * midpoint, so it reads clearly even when two rings' windows point the same
+ * way. A 16-point compass sits behind the rings for orientation, and all 5
+ * ring "orbits" are always drawn faintly so there's a visible slot waiting
+ * for each of up to 5 pins, even before they're all filled.
  */
 export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[]; size?: number }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${SIZE} ${SIZE}`} className="shrink-0" aria-label="Pinned sites wind rose">
-      <text x={CENTER} y={16} textAnchor="middle" fontSize={10} className="fill-slate-400 dark:fill-slate-500 select-none">
-        N
-      </text>
-      <circle cx={CENTER} cy={CENTER} r={2.5} className="fill-slate-400 dark:fill-slate-500" />
+      <circle cx={CENTER} cy={CENTER} r={DISC_RADIUS} className="fill-slate-100 stroke-slate-200 dark:fill-slate-800/70 dark:stroke-slate-700" strokeWidth={1} />
+
+      {ORBIT_RADII.map((r) => (
+        <circle key={r} cx={CENTER} cy={CENTER} r={r} fill="none" strokeWidth={1} className="stroke-slate-300/70 dark:stroke-slate-600/70" />
+      ))}
+
+      {COMPASS_POINTS.map(({ label, angle }) => {
+        const isCardinal = CARDINALS.has(label)
+        const tickStart = toXY(CENTER, CENTER, angle, COMPASS_TICK_INNER)
+        const tickEnd = toXY(CENTER, CENTER, angle, COMPASS_TICK_OUTER)
+        const labelPt = toXY(CENTER, CENTER, angle, isCardinal ? CARDINAL_LABEL_RADIUS : MINOR_LABEL_RADIUS)
+        return (
+          <g key={label}>
+            <line
+              x1={tickStart.x}
+              y1={tickStart.y}
+              x2={tickEnd.x}
+              y2={tickEnd.y}
+              strokeWidth={isCardinal ? 1.5 : 1}
+              className="stroke-slate-400 dark:stroke-slate-500"
+            />
+            <text
+              x={labelPt.x}
+              y={labelPt.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={isCardinal ? 11 : 7}
+              fontWeight={isCardinal ? 700 : 500}
+              className={isCardinal ? 'fill-slate-600 dark:fill-slate-300 select-none' : 'fill-slate-400 dark:fill-slate-500 select-none'}
+            >
+              {label}
+            </text>
+          </g>
+        )
+      })}
 
       {sites.slice(0, 5).map((site, i) => {
-        const r = INNER_RADIUS + i * RING_SPACING
+        const r = ORBIT_RADII[i]
         const hasWindow = site.dirMin !== null && site.dirMax !== null
         const span = hasWindow ? ((site.dirMax! - site.dirMin! + 360) % 360) || 360 : 0
         const midAngle = hasWindow ? site.dirMin! + span / 2 : 0
-        const needleColor = site.currentReason ? REASON_TEXT[site.currentReason] : 'text-slate-400'
-        const needleTip = site.currentDir != null ? toXY(CENTER, CENTER, site.currentDir, r) : null
         const label = site.name.length > 16 ? `${site.name.slice(0, 15)}…` : site.name
         const labelPathId = `pinned-rose-label-${site.slug}`
 
         return (
           <g key={site.slug}>
-            <circle cx={CENTER} cy={CENTER} r={r} fill="none" strokeWidth={1} className="stroke-slate-100 dark:stroke-slate-800" />
-
             {hasWindow && (
               <path
                 d={arcPath(CENTER, CENTER, site.dirMin!, span, r)}
@@ -79,10 +136,6 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
                 className={SITE_STROKE_CLASS[i % SITE_STROKE_CLASS.length]}
                 opacity={0.85}
               />
-            )}
-
-            {needleTip && (
-              <circle cx={needleTip.x} cy={needleTip.y} r={5} className={needleColor} fill="currentColor" stroke="white" strokeWidth={1.5} />
             )}
 
             {hasWindow && (

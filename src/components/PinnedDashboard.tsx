@@ -8,17 +8,12 @@ import { MAX_PINS } from '../lib/dataStore'
 export function PinnedDashboard({ pinnedSites, conditions }: { pinnedSites: Site[]; conditions: ConditionsCache | null }) {
   const [openDay, setOpenDay] = useState<{ site: Site; dayOffset: number } | null>(null)
 
-  const roseSites: PinnedRoseSite[] = pinnedSites.map((site) => {
-    const now = conditions?.sites[site.slug]?.now
-    return {
-      slug: site.slug,
-      name: site.name,
-      dirMin: site.wind_dir_min,
-      dirMax: site.wind_dir_max,
-      currentDir: now?.wind_direction_deg,
-      currentReason: now?.reason,
-    }
-  })
+  const roseSites: PinnedRoseSite[] = pinnedSites.map((site) => ({
+    slug: site.slug,
+    name: site.name,
+    dirMin: site.wind_dir_min,
+    dirMax: site.wind_dir_max,
+  }))
 
   return (
     <div>
