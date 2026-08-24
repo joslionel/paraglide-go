@@ -1,6 +1,6 @@
 import type { Reason } from '../lib/scoring'
 import { REASON_TEXT } from './StatusPill'
-import { toXY, arcPath } from '../lib/polar'
+import { toXY, arcPath, labelArcPath } from '../lib/polar'
 
 const SIZE = 300
 const CENTER = SIZE / 2
@@ -42,10 +42,11 @@ export interface PinnedRoseSite {
  * site's flyable-direction window as a colored arc band at its own radius
  * (not a wedge from center — wedges from 5 different sites would just
  * overlap into a solid mess) plus a dot for that site's current wind
- * direction, colored the usual on/marginal/off way. The site name is set
- * directly into the band at the arc's midpoint (white text, near-solid fill
- * behind it for contrast) rather than floating outside the ring, so the
- * whole thing reads as a labelled band instead of a ring + a nearby caption.
+ * direction, colored the usual on/marginal/off way. The site name curves
+ * along the band itself, following an invisible per-ring text path centered
+ * on the window's midpoint, so it reads clearly even when two rings' windows
+ * point the same way (labels used to be flat text and would overlap when
+ * tightly spaced).
  */
 export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[]; size?: number }) {
   return (
@@ -60,9 +61,10 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
         const hasWindow = site.dirMin !== null && site.dirMax !== null
         const span = hasWindow ? ((site.dirMax! - site.dirMin! + 360) % 360) || 360 : 0
         const midAngle = hasWindow ? site.dirMin! + span / 2 : 0
-        const labelPt = toXY(CENTER, CENTER, midAngle, r)
         const needleColor = site.currentReason ? REASON_TEXT[site.currentReason] : 'text-slate-400'
         const needleTip = site.currentDir != null ? toXY(CENTER, CENTER, site.currentDir, r) : null
+        const label = site.name.length > 16 ? `${site.name.slice(0, 15)}…` : site.name
+        const labelPathId = `pinned-rose-label-${site.slug}`
 
         return (
           <g key={site.slug}>
@@ -84,18 +86,19 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
             )}
 
             {hasWindow && (
-              <text
-                x={labelPt.x}
-                y={labelPt.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={9}
-                fontWeight={700}
-                className="fill-white select-none"
-                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 2 }}
-              >
-                {site.name.length > 12 ? `${site.name.slice(0, 11)}…` : site.name}
-              </text>
+              <>
+                <path id={labelPathId} d={labelArcPath(CENTER, CENTER, midAngle, r, label.length * 5.2)} fill="none" />
+                <text
+                  fontSize={9}
+                  fontWeight={700}
+                  className="fill-white select-none"
+                  style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 2 }}
+                >
+                  <textPath href={`#${labelPathId}`} startOffset="50%" textAnchor="middle">
+                    {label}
+                  </textPath>
+                </text>
+              </>
             )}
           </g>
         )

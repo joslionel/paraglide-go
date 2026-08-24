@@ -30,39 +30,53 @@ export function PinnedSitesGrid({
     .reduce((longest, days) => (days.length > longest.length ? days : longest), [] as string[])
 
   return (
-    <div className="overflow-x-auto">
-      <div className={`grid ${GRID_COLS} min-w-[620px] gap-1.5`}>
-        <div />
-        {dayDates.map((date) => (
-          <div key={date} className="text-center text-[11px] text-slate-500 dark:text-slate-400">
-            {isToday(date) ? 'Today' : formatDayLabel(date).split(' ')[0]}
-          </div>
-        ))}
+    <div>
+      <div className="mb-3">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Forecast Conditions This Week</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Predicted flying status for each pinned site, day by day — tap any cell for the full hourly forecast.
+        </p>
+      </div>
 
-        {sites.map((site) => {
-          const daily = conditions?.sites[site.slug]?.daily ?? []
-          return (
-            <Fragment key={site.slug}>
-              <div className="flex items-center truncate pr-2 text-sm font-medium text-slate-700 dark:text-slate-300">{site.name}</div>
-              {dayDates.map((date, dayOffset) => {
-                const day = daily.find((d) => d.date === date)
-                return (
-                  <button
-                    key={`${site.slug}-${date}`}
-                    onClick={() => onOpenDay(site, dayOffset)}
-                    disabled={!day}
-                    title={day ? `${site.name} — ${formatDayLabel(date)}: ${day.status}` : 'No data yet'}
-                    className={`flex cursor-pointer items-center justify-center rounded-md py-2.5 text-[11px] font-semibold disabled:cursor-not-allowed ${
-                      day ? `${STATUS_DOT_BG[day.status]} ${STATUS_SOLID_TEXT[day.status]} hover:opacity-85` : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600'
-                    }`}
-                  >
-                    {day ? STATUS_LABEL[day.status] : '–'}
-                  </button>
-                )
-              })}
-            </Fragment>
-          )
-        })}
+      <div className="overflow-x-auto">
+        <div className={`grid ${GRID_COLS} min-w-[620px] gap-1.5`}>
+          <div className="border-r border-slate-200 pr-2 pb-1 dark:border-slate-800" />
+          {dayDates.map((date) => (
+            <div key={date} className="pb-1 text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
+              {isToday(date) ? 'Today' : formatDayLabel(date).split(' ')[0]}
+            </div>
+          ))}
+
+          {sites.map((site, siteIndex) => {
+            const daily = conditions?.sites[site.slug]?.daily ?? []
+            return (
+              <Fragment key={site.slug}>
+                <div className="flex items-center truncate border-r border-slate-200 pr-2 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:text-slate-100">
+                  {site.name}
+                </div>
+                {dayDates.map((date, dayOffset) => {
+                  const day = daily.find((d) => d.date === date)
+                  return (
+                    <button
+                      key={`${site.slug}-${date}`}
+                      onClick={() => onOpenDay(site, dayOffset)}
+                      disabled={!day}
+                      title={day ? `${site.name} — ${formatDayLabel(date)}: ${day.status}` : 'No data yet'}
+                      className={`flex cursor-pointer items-center justify-center rounded-md py-2.5 text-[11px] font-semibold disabled:cursor-not-allowed ${
+                        day
+                          ? `${STATUS_DOT_BG[day.status]} ${STATUS_SOLID_TEXT[day.status]} hover:opacity-85`
+                          : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600'
+                      }`}
+                    >
+                      {day ? STATUS_LABEL[day.status] : '–'}
+                    </button>
+                  )
+                })}
+                {siteIndex < sites.length - 1 && <div className="col-span-full border-b border-slate-200 dark:border-slate-800" />}
+              </Fragment>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
