@@ -58,7 +58,7 @@ export async function refreshSiteConditions(slug: string): Promise<SiteCondition
   return data.conditions as SiteConditions
 }
 
-const MAX_PINS = 5
+const MAX_PINS = 6
 
 /** Slugs the given user has pinned (My Dashboard tab). Supabase-only — no local-JSON pin concept, since pinning requires an account. */
 export async function getPinnedSlugs(userId: string): Promise<string[]> {

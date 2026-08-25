@@ -3,11 +3,13 @@ import type { Site, ConditionsCache } from '../lib/types'
 import { PinnedSitesNow } from './PinnedSitesNow'
 import { PinnedSitesRose, type PinnedRoseSite } from './PinnedSitesRose'
 import { PinnedSitesGrid } from './PinnedSitesGrid'
+import { PinnedWeekDetail } from './PinnedWeekDetail'
 import { LazySiteDetailModal } from './LazySiteDetailModal'
 import { MAX_PINS } from '../lib/dataStore'
 
 export function PinnedDashboard({ pinnedSites, conditions }: { pinnedSites: Site[]; conditions: ConditionsCache | null }) {
   const [openDay, setOpenDay] = useState<{ site: Site; dayOffset: number } | null>(null)
+  const [weekDetail, setWeekDetail] = useState<{ site: Site; dayOffset: number } | null>(null)
 
   const roseSites: PinnedRoseSite[] = pinnedSites.map((site) => ({
     slug: site.slug,
@@ -34,7 +36,22 @@ export function PinnedDashboard({ pinnedSites, conditions }: { pinnedSites: Site
         </>
       )}
 
-      <PinnedSitesGrid sites={pinnedSites} conditions={conditions} onOpenDay={(site, dayOffset) => setOpenDay({ site, dayOffset })} />
+      <PinnedSitesGrid
+        sites={pinnedSites}
+        conditions={conditions}
+        onOpenDay={(site, dayOffset) => setWeekDetail({ site, dayOffset })}
+        selected={weekDetail ? { slug: weekDetail.site.slug, dayOffset: weekDetail.dayOffset } : null}
+      />
+
+      {weekDetail && (
+        <PinnedWeekDetail
+          site={weekDetail.site}
+          dayOffset={weekDetail.dayOffset}
+          conditions={conditions}
+          onOpenFullForecast={() => setOpenDay(weekDetail)}
+          onClose={() => setWeekDetail(null)}
+        />
+      )}
 
       {openDay && (
         <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/40" />}>

@@ -1,23 +1,25 @@
 import { toXY, arcPath, labelArcPath } from '../lib/polar'
 
-const SIZE = 320
+const SIZE = 380
 const CENTER = SIZE / 2
 const INNER_RADIUS = 36
 const RING_SPACING = 20
 const RING_STROKE = 16
-const ORBIT_RADII = Array.from({ length: 5 }, (_, i) => INNER_RADIUS + i * RING_SPACING)
+const PIN_COUNT = 6
+const ORBIT_RADII = Array.from({ length: PIN_COUNT }, (_, i) => INNER_RADIUS + i * RING_SPACING)
+const OUTERMOST_RADIUS = ORBIT_RADII[PIN_COUNT - 1]
 const DISC_RADIUS = CENTER - 2
-const COMPASS_TICK_INNER = ORBIT_RADII[4] + RING_STROKE / 2 + 4
+const COMPASS_TICK_INNER = OUTERMOST_RADIUS + RING_STROKE / 2 + 4
 const COMPASS_TICK_OUTER = COMPASS_TICK_INNER + 6
 const CARDINAL_LABEL_RADIUS = COMPASS_TICK_OUTER + 9
 const MINOR_LABEL_RADIUS = COMPASS_TICK_OUTER + 7
 
 // Both the outermost ring and the compass labels around it must stay inside
-// CENTER, or a 5th pinned site's ring / the N-S-E-W labels render off the
+// CENTER, or the last pinned site's ring / the N-S-E-W labels render off the
 // edge of the canvas — this assertion catches that at dev time if the
 // constants above ever get tuned back out of bounds.
 if (import.meta.env.DEV) {
-  const outermostRing = ORBIT_RADII[4] + RING_STROKE / 2
+  const outermostRing = OUTERMOST_RADIUS + RING_STROKE / 2
   const outermostLabel = CARDINAL_LABEL_RADIUS + 6 // rough half-height of the bold cardinal labels
   if (outermostRing >= CENTER) {
     console.warn(`PinnedSitesRose: outermost ring edge (${outermostRing}) reaches the canvas edge (${CENTER}) — it may clip.`)
@@ -34,7 +36,14 @@ if (import.meta.env.DEV) {
 // Written out literally (not built from a shared hex array) so Tailwind's
 // source-text scanner picks up every class — same reason StatusPill.tsx's
 // REASON_* maps and multiModel.ts's MODEL_* maps are spelled out per-key.
-const SITE_STROKE_CLASS = ['stroke-[#0d9488]', 'stroke-[#db2777]', 'stroke-[#4f46e5]', 'stroke-[#0891b2]', 'stroke-[#c026d3]']
+const SITE_STROKE_CLASS = [
+  'stroke-[#0d9488]',
+  'stroke-[#db2777]',
+  'stroke-[#4f46e5]',
+  'stroke-[#0891b2]',
+  'stroke-[#c026d3]',
+  'stroke-[#92400e]',
+]
 
 // The 16-point compass, drawn as background context behind the ring stack.
 // Cardinals render bold and larger; the rest (including the secondary
@@ -74,9 +83,9 @@ export interface PinnedRoseSite {
  * overlap into a solid mess). The site name curves along the band itself,
  * following an invisible per-ring text path centered on the window's
  * midpoint, so it reads clearly even when two rings' windows point the same
- * way. A 16-point compass sits behind the rings for orientation, and all 5
+ * way. A 16-point compass sits behind the rings for orientation, and all 6
  * ring "orbits" are always drawn faintly so there's a visible slot waiting
- * for each of up to 5 pins, even before they're all filled.
+ * for each of up to 6 pins, even before they're all filled.
  */
 export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[]; size?: number }) {
   return (
@@ -117,7 +126,7 @@ export function PinnedSitesRose({ sites, size = SIZE }: { sites: PinnedRoseSite[
         )
       })}
 
-      {sites.slice(0, 5).map((site, i) => {
+      {sites.slice(0, PIN_COUNT).map((site, i) => {
         const r = ORBIT_RADII[i]
         const hasWindow = site.dirMin !== null && site.dirMax !== null
         const span = hasWindow ? ((site.dirMax! - site.dirMin! + 360) % 360) || 360 : 0

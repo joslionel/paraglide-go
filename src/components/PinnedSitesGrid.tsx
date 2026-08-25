@@ -9,15 +9,18 @@ export function PinnedSitesGrid({
   sites,
   conditions,
   onOpenDay,
+  selected,
 }: {
   sites: Site[]
   conditions: ConditionsCache | null
   onOpenDay: (site: Site, dayOffset: number) => void
+  /** The cell currently expanded inline below the grid, if any — gets a ring so it's clear which cell the detail panel belongs to. */
+  selected?: { slug: string; dayOffset: number } | null
 }) {
   if (sites.length === 0) {
     return (
       <p className="text-sm text-slate-400">
-        No pinned sites yet — click the ☆ on a site card to pin up to 5, and they'll show up here as a 7-day grid.
+        No pinned sites yet — click the ☆ on a site card to pin up to 6, and they'll show up here as a 7-day grid.
       </p>
     )
   }
@@ -56,6 +59,7 @@ export function PinnedSitesGrid({
                 </div>
                 {dayDates.map((date, dayOffset) => {
                   const day = daily.find((d) => d.date === date)
+                  const isSelected = selected?.slug === site.slug && selected.dayOffset === dayOffset
                   return (
                     <button
                       key={`${site.slug}-${date}`}
@@ -66,7 +70,7 @@ export function PinnedSitesGrid({
                         day
                           ? `${STATUS_DOT_BG[day.status]} ${STATUS_SOLID_TEXT[day.status]} hover:opacity-85`
                           : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600'
-                      }`}
+                      } ${isSelected ? 'ring-2 ring-slate-800 dark:ring-white' : ''}`}
                     >
                       {day ? STATUS_LABEL[day.status] : '–'}
                     </button>
