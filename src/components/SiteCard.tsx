@@ -9,7 +9,7 @@ import { useAuth } from '../lib/AuthContext'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { refreshSiteConditions, pinSite, unpinSite } from '../lib/dataStore'
+import { refreshSiteConditions, pinSite, unpinSite, MAX_PINS } from '../lib/dataStore'
 
 export function SiteCard({
   site,
@@ -239,7 +239,7 @@ export function SiteCard({
                     isPinned
                       ? 'Unpin from My Dashboard'
                       : pinDisabled
-                        ? 'You can pin up to 5 sites — unpin one first'
+                        ? `You can pin up to ${MAX_PINS} sites — unpin one first`
                         : 'Pin to My Dashboard'
                   }
                   className={`cursor-pointer text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40 ${
