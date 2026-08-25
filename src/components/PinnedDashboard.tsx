@@ -1,5 +1,6 @@
 import { useState, Suspense } from 'react'
 import type { Site, ConditionsCache } from '../lib/types'
+import { PinnedSitesNow } from './PinnedSitesNow'
 import { PinnedSitesRose, type PinnedRoseSite } from './PinnedSitesRose'
 import { PinnedSitesGrid } from './PinnedSitesGrid'
 import { LazySiteDetailModal } from './LazySiteDetailModal'
@@ -24,9 +25,13 @@ export function PinnedDashboard({ pinnedSites, conditions }: { pinnedSites: Site
       </div>
 
       {pinnedSites.length > 0 && (
-        <div className="mb-6 flex justify-center">
-          <PinnedSitesRose sites={roseSites} />
-        </div>
+        <>
+          <PinnedSitesNow sites={pinnedSites} conditions={conditions} onOpenSite={(site) => setOpenDay({ site, dayOffset: 0 })} />
+
+          <div className="mb-6 flex justify-center">
+            <PinnedSitesRose sites={roseSites} />
+          </div>
+        </>
       )}
 
       <PinnedSitesGrid sites={pinnedSites} conditions={conditions} onOpenDay={(site, dayOffset) => setOpenDay({ site, dayOffset })} />

@@ -38,6 +38,14 @@ export const STATUS_DOT_BG: Record<Status, string> = {
   unknown: 'bg-[#8b8d98]',
 }
 
+// Left-border accent for a status card (e.g. a "flying now" summary tile).
+export const STATUS_BORDER_CLASS: Record<Status, string> = {
+  on: 'border-[#0ca30c]',
+  marginal: 'border-[#fab219]',
+  off: 'border-[#d03b3b]',
+  unknown: 'border-[#8b8d98]',
+}
+
 // Text color for use ON TOP of the solid STATUS_DOT_BG fills above (e.g. a
 // fully-colored grid cell) — amber is light enough that white text fails
 // contrast, so marginal gets dark text while on/off/unknown get white.
