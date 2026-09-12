@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSites, getConditions, getPinnedSlugs, isSupabaseConfigured, MAX_PINS } from './lib/dataStore'
 import type { Site, ConditionsCache, SiteConditions } from './lib/types'
+import type { Status } from './lib/scoring'
 import { SiteCard } from './components/SiteCard'
+import { AllSitesMap } from './components/AllSitesMap'
+import { NearbySitesList } from './components/NearbySitesList'
+import { STATUS_DOT_BG, STATUS_LABEL } from './components/StatusPill'
 import { UserMenu } from './components/UserMenu'
 import { AddSiteForm } from './components/AddSiteForm'
 import { UnitToggle } from './components/UnitToggle'
@@ -9,6 +13,8 @@ import { PinnedDashboard } from './components/PinnedDashboard'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
+
+const STATUS_LEGEND: Status[] = ['on', 'marginal', 'off', 'unknown']
 
 type Filter = 'all' | 'open' | 'members' | 'pinned'
 
@@ -21,6 +27,8 @@ function DashboardContent() {
   const [conditionsError, setConditionsError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [pinnedSlugs, setPinnedSlugs] = useState<string[]>([])
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   const loadSites = useCallback(() => {
     getSites()
@@ -56,6 +64,10 @@ function DashboardContent() {
     if (!user && filter === 'pinned') setFilter('all')
   }, [user, filter])
 
+  useEffect(() => {
+    if (selectedSlug) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [selectedSlug])
+
   const mergeConditions = useCallback((slug: string, siteConditions: SiteConditions) => {
     setConditions((prev) => ({
       generated_at: prev && prev.generated_at > siteConditions.updated_at ? prev.generated_at : siteConditions.updated_at,
@@ -71,6 +83,12 @@ function DashboardContent() {
 
   const customSiteCount = user ? sites.filter((s) => s.is_custom && s.owner_id === user.id).length : 0
   const pinnedSites = pinnedSlugs.map((slug) => sites.find((s) => s.slug === slug)).filter((s): s is Site => Boolean(s))
+  const selectedSite = visibleSites.find((s) => s.slug === selectedSlug) ?? null
+
+  useEffect(() => {
+    if (selectedSlug && !visibleSites.some((s) => s.slug === selectedSlug)) setSelectedSlug(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSites, selectedSlug])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -151,19 +169,39 @@ function DashboardContent() {
         {filter === 'pinned' ? (
           <PinnedDashboard pinnedSites={pinnedSites} conditions={conditions} />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleSites.map((site) => (
-              <SiteCard
-                key={site.slug}
-                site={site}
-                conditions={conditions?.sites[site.slug]}
-                onChanged={loadSites}
-                onConditionsRefreshed={mergeConditions}
-                isPinned={pinnedSlugs.includes(site.slug)}
-                pinDisabled={pinnedSlugs.length >= MAX_PINS}
-                onPinChanged={loadPinned}
-              />
-            ))}
+          <div>
+            <AllSitesMap sites={visibleSites} conditions={conditions} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
+
+            <div className="mt-3 mb-6 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+              {STATUS_LEGEND.map((status) => (
+                <span key={status} className="flex items-center gap-1.5">
+                  <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT_BG[status]}`} />
+                  {STATUS_LABEL[status]}
+                </span>
+              ))}
+            </div>
+
+            <div ref={detailRef}>
+              {selectedSite ? (
+                <>
+                  <SiteCard
+                    key={selectedSite.slug}
+                    site={selectedSite}
+                    conditions={conditions?.sites[selectedSite.slug]}
+                    onChanged={loadSites}
+                    onConditionsRefreshed={mergeConditions}
+                    isPinned={pinnedSlugs.includes(selectedSite.slug)}
+                    pinDisabled={pinnedSlugs.length >= MAX_PINS}
+                    onPinChanged={loadPinned}
+                  />
+                  <NearbySitesList selected={selectedSite} sites={visibleSites} conditions={conditions} onSelect={setSelectedSlug} />
+                </>
+              ) : (
+                <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 dark:border-slate-700">
+                  Click a site on the map to see its forecast.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </main>
