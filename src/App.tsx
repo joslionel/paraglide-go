@@ -10,13 +10,14 @@ import { UserMenu } from './components/UserMenu'
 import { AddSiteForm } from './components/AddSiteForm'
 import { UnitToggle } from './components/UnitToggle'
 import { PinnedDashboard } from './components/PinnedDashboard'
+import { SiteProfiler } from './components/SiteProfiler'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
 
 const STATUS_LEGEND: Status[] = ['on', 'marginal', 'off', 'unknown']
 
-type Filter = 'all' | 'open' | 'members' | 'pinned'
+type Filter = 'all' | 'open' | 'members' | 'pinned' | 'profiler'
 
 function DashboardContent() {
   const { user } = useAuth()
@@ -61,7 +62,7 @@ function DashboardContent() {
   }, [loadSites, loadPinned, user])
 
   useEffect(() => {
-    if (!user && filter === 'pinned') setFilter('all')
+    if (!user && (filter === 'pinned' || filter === 'profiler')) setFilter('all')
   }, [user, filter])
 
   useEffect(() => {
@@ -114,7 +115,7 @@ function DashboardContent() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-1.5">
-            {(['all', 'open', 'members', ...(user ? (['pinned'] as Filter[]) : [])] as Filter[]).map((f) => (
+            {(['all', 'open', 'members', ...(user ? (['pinned', 'profiler'] as Filter[]) : [])] as Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -124,11 +125,19 @@ function DashboardContent() {
                     : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}
               >
-                {f === 'all' ? 'All sites' : f === 'open' ? 'Open' : f === 'members' ? 'Members only' : '★ My Dashboard'}
+                {f === 'all'
+                  ? 'All sites'
+                  : f === 'open'
+                    ? 'Open'
+                    : f === 'members'
+                      ? 'Members only'
+                      : f === 'pinned'
+                        ? '★ My Dashboard'
+                        : 'Site Profiler'}
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && filter !== 'pinned' && (
+          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && (
             <AddSiteForm remaining={5 - customSiteCount} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
           )}
         </div>
@@ -151,6 +160,8 @@ function DashboardContent() {
 
         {filter === 'pinned' ? (
           <PinnedDashboard pinnedSites={pinnedSites} conditions={conditions} />
+        ) : filter === 'profiler' ? (
+          <SiteProfiler />
         ) : (
           <div>
             <AllSitesMap sites={visibleSites} conditions={conditions} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
