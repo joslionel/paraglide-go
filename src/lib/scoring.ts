@@ -6,29 +6,26 @@
 export type Status = 'on' | 'marginal' | 'off' | 'unknown'
 
 /**
- * Why a reading is "off" or "marginal", one level more specific than Status —
- * lets the UI distinguish a blown-out day from a wrong-direction one. There's
- * no "light" reason: a light breeze on the correct face isn't a go/no-go
- * signal the way wrong direction or too-strong wind is, so it's folded into
- * "on" rather than "off" — see speedStatus's too-light branch.
+ * Why a reading is "off", "marginal", or a flagged "on" — one level more
+ * specific than Status. Lets the UI tell a blown-out day apart from a
+ * wrong-direction one, and a merely gusty "on" apart from a plain one.
+ * There's no "light" reason: a light breeze on the correct face isn't a
+ * go/no-go signal the way wrong direction or too-strong wind is, so it's
+ * folded into "on" rather than "off" — see speedStatus's too-light branch.
  */
-export type Reason = 'on' | 'marginal' | 'too-strong' | 'wrong-direction'
+export type Reason = 'on' | 'gusty' | 'marginal' | 'blown-out' | 'wrong-direction'
 
 export interface Thresholds {
   /** Below this speed there's not enough wind to soar — still "on" if the direction's right (safe to fly, just maybe a sled run), not a go/no-go "off". */
   speedTooLightMph: number
   /** At/above this speed (and below speedOnMaxMph) conditions are "on". */
   speedOnMinMph: number
-  /** At/below this speed (and above speedOnMinMph) conditions are "on". */
+  /** At/above this speed (site's own launchable ceiling) it's blown out, regardless of direction. */
   speedOnMaxMph: number
-  /** Above this speed it's too strong, regardless of direction. */
-  speedMarginalMaxMph: number
-  /** Gust minus mean speed up to this is normal and doesn't downgrade anything; above it, a soft downgrade to marginal. */
-  gustSpreadOkMph: number
-  /** Gust ÷ mean speed beyond this ratio triggers the "gusty" warning badge — doesn't change the on/marginal/off status itself. */
-  gustRatioMax: number
-  /** Gust speed above this triggers the "gusty" warning badge — doesn't change the on/marginal/off status itself. */
-  gustAbsoluteMaxMph: number
+  /** Gust above the ceiling (speedOnMaxMph, or a site's own speedMaxMph override) by more than this many mph keeps status "on" but flags the "gusty" advisory reason — what matters is whether a gust alone would blow the site out, not how it compares to the moment's own mean. */
+  gustAdvisoryOverCeilingMph: number
+  /** Gust above the ceiling by more than this many mph downgrades status to "marginal" — still direction-correct, just rough. */
+  gustMarginalOverCeilingMph: number
   /** Within this many degrees of either edge of the site's wind arc, direction is "marginal" instead of "on" — capped at a third of the arc's own span, so a narrow window (e.g. 20-35°) still keeps a genuine "on" zone in the middle instead of being marginal edge-to-edge. */
   directionMarginalDegrees: number
   /** Precipitation probability (%) at/above which status is capped at "marginal". */
@@ -39,10 +36,8 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   speedTooLightMph: 5,
   speedOnMinMph: 8,
   speedOnMaxMph: 18,
-  speedMarginalMaxMph: 22,
-  gustSpreadOkMph: 5,
-  gustRatioMax: 1.5,
-  gustAbsoluteMaxMph: 18,
+  gustAdvisoryOverCeilingMph: 0,
+  gustMarginalOverCeilingMph: 6,
   directionMarginalDegrees: 15,
   precipMarginalPercent: 50,
 }
@@ -91,45 +86,46 @@ export function directionStatus(dirDeg: number, window: WindWindow, thresholds: 
   return distToEdge <= marginalBuffer ? 'marginal' : 'on'
 }
 
-export function speedStatus(speedMph: number, gustMph: number, window: WindWindow, thresholds: Thresholds): Status {
-  const tooLight = window.speedMinMph ?? thresholds.speedTooLightMph
-  const onMin = window.speedMinMph ?? thresholds.speedOnMinMph
-  const onMax = window.speedMaxMph ?? thresholds.speedOnMaxMph
-  const marginalMax = window.speedMaxMph ?? thresholds.speedMarginalMaxMph
-
-  let status: Status
-  if (speedMph < tooLight) status = 'on' // safe direction, just calm — not a go/no-go "off"
-  else if (speedMph < onMin) status = 'marginal'
-  else if (speedMph <= onMax) status = 'on'
-  else if (speedMph <= marginalMax) status = 'marginal'
-  else status = 'off'
-
-  // A few mph of gust over the mean is normal; more than that is a soft downgrade.
-  // (Big/ratio-based gusts are flagged separately by gustWarning below, rather
-  // than forced to "off" here — real forecast data is gusty often enough at
-  // low mean speeds that a hard ratio cutoff swamped the status with false "off"s.)
-  const gustSpread = gustMph - speedMph
-  if (gustSpread > thresholds.gustSpreadOkMph) {
-    status = worseOf(status, 'marginal')
-  }
-
-  return status
+interface SpeedResult {
+  status: Status
+  /** True only when status is still "on" but gusts alone would be enough to warrant a caution flag. */
+  gusty: boolean
 }
 
-/** Gusts much bigger than the mean, or big in absolute terms — worth flagging even when it doesn't change the status. */
-export function gustWarning(speedMph: number, gustMph: number, thresholds: Thresholds): boolean {
-  const ratioExceeded = speedMph > 0 && gustMph / speedMph > thresholds.gustRatioMax
-  return ratioExceeded || gustMph > thresholds.gustAbsoluteMaxMph
+export function speedStatus(speedMph: number, gustMph: number, window: WindWindow, thresholds: Thresholds): SpeedResult {
+  const tooLight = window.speedMinMph ?? thresholds.speedTooLightMph
+  const onMin = window.speedMinMph ?? thresholds.speedOnMinMph
+  const ceiling = window.speedMaxMph ?? thresholds.speedOnMaxMph
+
+  // Base wind alone above the site's ceiling is blown out — no marginal
+  // buffer zone here; that space is now covered by the gust tiers below.
+  if (speedMph > ceiling) return { status: 'off', gusty: false }
+
+  let status: Status
+  if (speedMph < tooLight) status = 'on' // calm but safe direction, just not enough to soar
+  else if (speedMph < onMin) status = 'marginal' // not quite enough wind yet
+  else status = 'on'
+
+  // What matters for gust risk is whether a gust would itself reach the
+  // site's blow-out ceiling, not how far above the moment's own (possibly
+  // much lower) mean it is.
+  const gustOverCeiling = gustMph - ceiling
+  if (gustOverCeiling > thresholds.gustMarginalOverCeilingMph) {
+    return { status: worseOf(status, 'marginal'), gusty: false }
+  }
+
+  const gusty = status === 'on' && gustOverCeiling > thresholds.gustAdvisoryOverCeilingMph
+  return { status, gusty }
 }
 
 export function computeStatus(
   reading: WeatherReading,
   window: WindWindow,
   thresholds: Thresholds = DEFAULT_THRESHOLDS
-): { status: Status; direction: Status; speed: Status; reason: Reason; gustWarning: boolean } {
+): { status: Status; direction: Status; speed: Status; reason: Reason } {
   const direction = directionStatus(reading.windDirectionDeg, window, thresholds)
-  const speed = speedStatus(reading.windSpeedMph, reading.windGustMph, window, thresholds)
-  let status = worseOf(direction, speed)
+  const speedResult = speedStatus(reading.windSpeedMph, reading.windGustMph, window, thresholds)
+  let status = worseOf(direction, speedResult.status)
 
   if (status === 'on' && reading.precipitationProbabilityPercent >= thresholds.precipMarginalPercent) {
     status = 'marginal'
@@ -137,14 +133,15 @@ export function computeStatus(
 
   let reason: Reason
   if (status === 'off') {
-    // The only ways to be "off" now: wrong direction, or right direction but too strong
-    // (too-light no longer produces "off" — see speedStatus).
-    reason = direction === 'off' ? 'wrong-direction' : 'too-strong'
+    // The only ways to be "off" now: wrong direction, or right direction but blown out.
+    reason = direction === 'off' ? 'wrong-direction' : 'blown-out'
   } else if (status === 'marginal') {
     reason = 'marginal'
+  } else if (speedResult.gusty) {
+    reason = 'gusty'
   } else {
     reason = 'on'
   }
 
-  return { status, direction, speed, reason, gustWarning: gustWarning(reading.windSpeedMph, reading.windGustMph, thresholds) }
+  return { status, direction, speed: speedResult.status, reason }
 }

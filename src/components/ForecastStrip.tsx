@@ -8,18 +8,18 @@ import { formatSpeed, UNIT_LABELS } from '../lib/units'
 
 const MAX_WINDOW_LINES = 2
 
-/** Separate contiguous "on" windows within the day's (already sunrise-sunset-trimmed) hours, e.g. ["11-13", "16-18"]. */
+/** Separate contiguous "on" windows within the day's (already sunrise-sunset-trimmed) hours, e.g. ["11-13", "16-18"]. Checks status, not reason, so gusty-but-still-on hours count too. */
 function onWindows(hours: HourlyCondition[]): string[] {
   const sorted = hours
-    .map((h) => ({ hour: parseInt(h.time.slice(11, 13), 10), reason: h.reason }))
+    .map((h) => ({ hour: parseInt(h.time.slice(11, 13), 10), status: h.status }))
     .sort((a, b) => a.hour - b.hour)
 
   const windows: string[] = []
   let start: number | null = null
   let prevHour: number | null = null
 
-  for (const { hour, reason } of sorted) {
-    if (reason === 'on') {
+  for (const { hour, status } of sorted) {
+    if (status === 'on') {
       if (start === null) start = hour
       prevHour = hour
     } else if (start !== null) {
@@ -32,7 +32,7 @@ function onWindows(hours: HourlyCondition[]): string[] {
   return windows
 }
 
-const LEGEND: Reason[] = ['on', 'marginal', 'too-strong', 'wrong-direction']
+const LEGEND: Reason[] = ['on', 'gusty', 'marginal', 'blown-out', 'wrong-direction']
 
 const ROW_GRID_COLS = 'grid-cols-[1.1rem_2.75rem_2.75rem_2.25rem_2.5rem_2.5rem]'
 
@@ -105,14 +105,12 @@ export function ForecastStrip({ daily }: { daily: DailyCondition[] }) {
                   <span className="tabular-nums">{formatSpeed(h.wind_speed_mph, unit)}</span>
                   <span
                     className={`tabular-nums ${
-                      h.gust_warning
-                        ? 'font-bold text-[#946200] dark:text-[#fab219]'
-                        : 'text-slate-500 dark:text-slate-400'
+                      h.reason === 'gusty' ? 'font-bold text-[#946200] dark:text-[#fab219]' : 'text-slate-500 dark:text-slate-400'
                     }`}
-                    title={h.gust_warning ? 'Gusty — big spread relative to the mean, or a big gust outright' : undefined}
+                    title={h.reason === 'gusty' ? 'Gusts alone would be enough to blow this site out — still on, but rough' : undefined}
                   >
                     g{formatSpeed(h.wind_gust_mph, unit)}
-                    {h.gust_warning && '⚠'}
+                    {h.reason === 'gusty' && '⚠'}
                   </span>
                   <span>{degToCompass(h.wind_direction_deg)}</span>
                   <span className="text-right tabular-nums text-slate-500 dark:text-slate-400">

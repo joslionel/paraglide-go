@@ -267,7 +267,7 @@ export function SiteCard({
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <StatusPill status={status} size="md" />
+            <StatusPill status={status} size="md" advisory={now?.reason === 'gusty'} />
             <WindRose
               dirMin={site.wind_dir_min}
               dirMax={site.wind_dir_max}
@@ -288,7 +288,7 @@ export function SiteCard({
               {degToCompass(now.wind_direction_deg)} <span className="text-slate-400">{now.wind_direction_deg}°</span>
             </span>
             <span className="text-slate-400">{now.precipitation_probability_percent}% rain</span>
-            {now.gust_warning && (
+            {now.reason === 'gusty' && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#fab219]/15 px-2 py-0.5 text-xs font-medium text-[#946200] dark:text-[#fab219]">
                 ⚠ Gusty
               </span>

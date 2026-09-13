@@ -21,10 +21,13 @@ export const STATUS_LABEL: Record<Status, string> = {
   unknown: 'No data',
 }
 
-export function StatusPill({ status, size = 'md' }: { status: Status; size?: 'sm' | 'md' | 'lg' }) {
+/** `advisory` adds the amber "gusty" ring (see REASON_BORDER_CLASS) without changing the underlying status color. */
+export function StatusPill({ status, size = 'md', advisory = false }: { status: Status; size?: 'sm' | 'md' | 'lg'; advisory?: boolean }) {
   const sizeClasses = { sm: 'text-xs px-2 py-0.5', md: 'text-sm px-2.5 py-1', lg: 'text-base px-3 py-1.5' }[size]
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${STYLES[status]} ${sizeClasses}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${STYLES[status]} ${sizeClasses} ${advisory ? 'ring-2 ring-inset ring-[#fab219]' : ''}`}
+    >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {STATUS_LABEL[status]}
     </span>
@@ -63,44 +66,62 @@ export const STATUS_TEXT: Record<Status, string> = {
   unknown: 'text-[#8b8d98]',
 }
 
-// One level more specific than Status — why a reading is "off" or "marginal".
-// No "light" reason: a light breeze on the correct face is "on", not a
-// go/no-go "off" — see scoring.ts. Deliberately does NOT add more hues on
-// top of the 3 status colors (that's what made on/light/wrong-direction hard
-// to tell apart) — instead every "off" reason shares the same critical red
-// and is told apart by icon + label, per the rule that status color never
-// carries meaning alone.
+// One level more specific than Status — why a reading is "off", "marginal",
+// or a flagged "on". No "light" reason: a light breeze on the correct face
+// is "on", not a go/no-go "off" — see scoring.ts. Deliberately does NOT add
+// more hues on top of the 3 status colors (that's what made on/light/
+// wrong-direction hard to tell apart) — instead every "off" reason shares
+// the same critical red and every "on" reason shares the same green, told
+// apart by icon + label (and, for "gusty", a border accent) rather than a
+// new hue, per the rule that status color never carries meaning alone.
 export const REASON_LABEL: Record<Reason, string> = {
   on: 'On',
+  gusty: 'Gusty',
   marginal: 'Marginal',
-  'too-strong': 'Too high',
-  'wrong-direction': 'Wrong direction',
+  'blown-out': 'Blown out',
+  'wrong-direction': 'Off the hill',
 }
 
 export const REASON_ICON: Record<Reason, string> = {
   on: '✓',
+  gusty: '✓',
   marginal: '!',
-  'too-strong': '↑',
+  'blown-out': '↑',
   'wrong-direction': '⊘',
 }
 
 export const REASON_TEXT: Record<Reason, string> = {
   on: 'text-[#0ca30c]',
+  gusty: 'text-[#0ca30c]',
   marginal: 'text-[#946200] dark:text-[#fab219]',
-  'too-strong': 'text-[#d03b3b]',
+  'blown-out': 'text-[#d03b3b]',
   'wrong-direction': 'text-[#d03b3b]',
 }
 
 export const REASON_DOT_BG: Record<Reason, string> = {
   on: 'bg-[#0ca30c]',
+  gusty: 'bg-[#0ca30c]',
   marginal: 'bg-[#fab219]',
-  'too-strong': 'bg-[#d03b3b]',
+  'blown-out': 'bg-[#d03b3b]',
   'wrong-direction': 'bg-[#d03b3b]',
 }
 
 export const REASON_ROW_BG: Record<Reason, string> = {
   on: 'bg-[#0ca30c]/10',
+  gusty: 'bg-[#0ca30c]/10',
   marginal: 'bg-[#fab219]/10',
-  'too-strong': 'bg-[#d03b3b]/10',
+  'blown-out': 'bg-[#d03b3b]/10',
   'wrong-direction': 'bg-[#d03b3b]/10',
+}
+
+// Advisory border accent — only "gusty" gets one, since it's the one reason
+// that needs to stand out from a plain "on" without changing the underlying
+// green (the gusts alone would justify caution even though the mean wind and
+// direction are both fine).
+export const REASON_BORDER_CLASS: Record<Reason, string> = {
+  on: '',
+  gusty: 'ring-2 ring-inset ring-[#fab219]',
+  marginal: '',
+  'blown-out': '',
+  'wrong-direction': '',
 }

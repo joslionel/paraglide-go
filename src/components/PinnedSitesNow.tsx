@@ -1,5 +1,5 @@
 import type { Site, ConditionsCache } from '../lib/types'
-import { STATUS_DOT_BG, STATUS_TEXT, STATUS_BORDER_CLASS, STATUS_LABEL } from './StatusPill'
+import { STATUS_DOT_BG, STATUS_TEXT, STATUS_BORDER_CLASS, STATUS_LABEL, REASON_LABEL } from './StatusPill'
 import { degToCompass } from '../lib/format'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
@@ -43,11 +43,13 @@ export function PinnedSitesNow({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {rows.map(({ site, now }) => {
           const status = now?.status ?? 'unknown'
+          const gusty = now?.reason === 'gusty'
+          const borderClass = gusty ? 'border-[#fab219]' : STATUS_BORDER_CLASS[status]
           return (
             <button
               key={site.slug}
               onClick={() => onOpenSite(site)}
-              className={`flex cursor-pointer items-center justify-between rounded-lg border-l-4 bg-white px-3 py-2.5 text-left shadow-sm hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 ${STATUS_BORDER_CLASS[status]}`}
+              className={`flex cursor-pointer items-center justify-between rounded-lg border-l-4 bg-white px-3 py-2.5 text-left shadow-sm hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 ${borderClass}`}
             >
               <div>
                 <div className="flex items-center gap-1.5">
@@ -60,7 +62,9 @@ export function PinnedSitesNow({
                     : 'No data yet'}
                 </p>
               </div>
-              <span className={`text-xs font-semibold tracking-wide uppercase ${STATUS_TEXT[status]}`}>{STATUS_LABEL[status]}</span>
+              <span className={`text-xs font-semibold tracking-wide uppercase ${STATUS_TEXT[status]}`}>
+                {gusty ? REASON_LABEL.gusty : STATUS_LABEL[status]}
+              </span>
             </button>
           )
         })}

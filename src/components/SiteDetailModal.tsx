@@ -191,7 +191,7 @@ export function SiteDetailModal({ site, onClose, dayOffset = 0 }: { site: Site; 
 
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  {(['on', 'marginal', 'too-strong', 'wrong-direction'] as Reason[]).map((r) => (
+                  {(['on', 'gusty', 'marginal', 'blown-out', 'wrong-direction'] as Reason[]).map((r) => (
                     <span key={r} className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
                       <span className={`font-bold ${REASON_TEXT[r]}`} aria-hidden="true">
                         {REASON_ICON[r]}

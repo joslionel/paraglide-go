@@ -1,5 +1,5 @@
 import type { Site, ConditionsCache } from '../lib/types'
-import { REASON_ROW_BG, REASON_TEXT, REASON_ICON, REASON_LABEL, STATUS_LABEL } from './StatusPill'
+import { REASON_ROW_BG, REASON_TEXT, REASON_ICON, REASON_LABEL, REASON_BORDER_CLASS, STATUS_LABEL } from './StatusPill'
 import { degToCompass, formatHour, formatDayLabel, isToday } from '../lib/format'
 import { useUnit } from '../lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from '../lib/units'
@@ -65,7 +65,7 @@ export function PinnedWeekDetail({
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
           {day.hours.map((h) => (
-            <div key={h.time} className={`rounded-md px-2 py-1.5 text-xs ${REASON_ROW_BG[h.reason]}`}>
+            <div key={h.time} className={`rounded-md px-2 py-1.5 text-xs ${REASON_ROW_BG[h.reason]} ${REASON_BORDER_CLASS[h.reason]}`}>
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-700 dark:text-slate-300">{formatHour(h.time)}</span>
                 <span className={`font-bold ${REASON_TEXT[h.reason]}`} title={REASON_LABEL[h.reason]} aria-hidden="true">
