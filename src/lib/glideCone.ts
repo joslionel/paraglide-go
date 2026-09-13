@@ -59,7 +59,12 @@ export async function computeGlideCone({
     bearings.push(((centerBearingDeg + offset) % 360 + 360) % 360)
   }
 
-  const stepDistanceNm = maxDistanceNm / distanceSteps
+  // Quadratic spacing — much denser close to takeoff (where a single local
+  // knoll or a low-res SRTM artifact would otherwise dominate the running
+  // max for the whole ray) and coarser further out, for the same total
+  // point count as uniform spacing. E.g. with 15 steps over 12nm, the first
+  // sample lands at ~0.05nm instead of 0.8nm.
+  const distanceAt = (step: number) => maxDistanceNm * (step / distanceSteps) ** 2
 
   // One flat point list (takeoff + every sample on every bearing) so the
   // whole sweep is a single batched elevation fetch instead of one per ray.
@@ -68,7 +73,7 @@ export async function computeGlideCone({
   bearings.forEach((bearing, bIdx) => {
     for (let step = 1; step <= distanceSteps; step++) {
       sampleIndices[bIdx].push(points.length)
-      points.push(destinationPoint(takeoff.lat, takeoff.lon, bearing, step * stepDistanceNm))
+      points.push(destinationPoint(takeoff.lat, takeoff.lon, bearing, distanceAt(step)))
     }
   })
 
@@ -78,7 +83,7 @@ export async function computeGlideCone({
   const rays: GlideRay[] = bearings.map((bearing, bIdx) => {
     let runningMax = 0
     const samples: GlideSample[] = sampleIndices[bIdx].map((pointIdx, stepIdx) => {
-      const distanceNmVal = (stepIdx + 1) * stepDistanceNm
+      const distanceNmVal = distanceAt(stepIdx + 1)
       const elevationFt = elevationsM[pointIdx] * METERS_TO_FEET
       const dropFt = takeoffElevationFt - elevationFt
       const requiredHere = dropFt <= 0 ? Infinity : (distanceNmVal * NM_TO_FEET) / dropFt
