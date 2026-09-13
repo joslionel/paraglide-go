@@ -1,8 +1,9 @@
-# Mid-Wales Paragliding Conditions Dashboard
+# UK Paragliding Sites and Conditions Map
 
-Shows On / Marginal / Off flying status for Mid-Wales & Borders Soaring Club
-sites, derived from Open-Meteo forecasts compared against each site's known
-wind window — not a generic weather score.
+Shows On / Marginal / Off flying status for paragliding sites across the UK
+(currently Mid-Wales & Borders Soaring Club, Southern Hang Gliding Club, and
+Thames Valley HGC), derived from Open-Meteo forecasts compared against each
+site's known wind window — not a generic weather score.
 
 ## Status
 

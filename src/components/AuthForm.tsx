@@ -117,7 +117,7 @@ export function AuthForm({ onClose }: { onClose: () => void }) {
               required
               value={referralCode}
               onChange={(e) => setReferralCode(e.target.value)}
-              placeholder="e.g. flymidwales"
+              placeholder="Ask your club or an existing member"
               className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
           </div>
