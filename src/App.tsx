@@ -95,7 +95,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
         <div className="mx-auto max-w-6xl px-4 py-5">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-xl font-semibold sm:text-2xl">UK Paragliding Sites and Conditions Map</h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
