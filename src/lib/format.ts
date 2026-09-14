@@ -16,6 +16,12 @@ export function formatDayLabel(dateStr: string): string {
   return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+/** Single weekday initial (M T W T F S S) for compact abbreviated forecast rows. */
+export function dayLetter(dateStr: string): string {
+  const date = new Date(`${dateStr}T12:00:00`)
+  return date.toLocaleDateString('en-GB', { weekday: 'narrow' })
+}
+
 export function formatHour(timeStr: string): string {
   return timeStr.slice(11, 16)
 }

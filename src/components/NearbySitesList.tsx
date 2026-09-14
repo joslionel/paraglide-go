@@ -1,6 +1,7 @@
 import type { Site, ConditionsCache } from '../lib/types'
 import { distanceMiles } from '../lib/geo'
-import { STATUS_DOT_BG } from './StatusPill'
+import { STATUS_DOT_BG, STATUS_SOLID_TEXT } from './StatusPill'
+import { dayLetter } from '../lib/format'
 
 const RADIUS_MILES = 50
 
@@ -33,18 +34,30 @@ export function NearbySitesList({
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {nearby.map(({ site, miles }) => {
-            const status = conditions?.sites[site.slug]?.now?.status ?? 'unknown'
+            const daily = conditions?.sites[site.slug]?.daily.slice(0, 7) ?? []
             return (
               <button
                 key={site.slug}
                 onClick={() => onSelect(site.slug)}
-                className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+                className="flex cursor-pointer flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
               >
-                <span className="flex items-center gap-2 truncate">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT_BG[status]}`} />
+                <span className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium text-slate-800 dark:text-slate-100">{site.name}</span>
+                  <span className="shrink-0 pl-2 text-xs text-slate-400">{miles.toFixed(0)} mi</span>
                 </span>
-                <span className="shrink-0 pl-2 text-xs text-slate-400">{miles.toFixed(0)} mi</span>
+                <span className="flex gap-0.5">
+                  {daily.length > 0
+                    ? daily.map((day) => (
+                        <span
+                          key={day.date}
+                          title={`${dayLetter(day.date)}: ${day.status}`}
+                          className={`flex h-5 flex-1 items-center justify-center rounded text-[10px] font-semibold ${STATUS_DOT_BG[day.status]} ${STATUS_SOLID_TEXT[day.status]}`}
+                        >
+                          {dayLetter(day.date)}
+                        </span>
+                      ))
+                    : Array.from({ length: 7 }).map((_, i) => <span key={i} className="h-5 flex-1 rounded bg-slate-100 dark:bg-slate-800" />)}
+                </span>
               </button>
             )
           })}

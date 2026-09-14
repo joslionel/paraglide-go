@@ -58,9 +58,9 @@ type ClickMode = 'takeoff' | 'target' | 'gradient'
  *    prominence ahead of takeoff correctly shadows everything beyond it.
  *  - Target: click any other point for a direct distance/drop/required-
  *    ratio readout, independent of the cone.
- *  - Slope gradient: drag (start to end, capped at 150m) to measure the
- *    steepness of a specific launch face — e.g. the top and bottom of a
- *    take-off slope — and get a launchability read.
+ *  - Slope gradient: tap/click a start point then an end point (capped at
+ *    150m apart) to measure the steepness of a specific launch face — e.g.
+ *    the top and bottom of a take-off slope — and get a launchability read.
  */
 export function SiteProfiler() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -72,8 +72,8 @@ export function SiteProfiler() {
   const gradientStartMarkerRef = useRef<L.Marker | null>(null)
   const gradientEndMarkerRef = useRef<L.Marker | null>(null)
   const clickModeRef = useRef<ClickMode>('takeoff')
-  const draggingGradientRef = useRef(false)
   const gradientStartRef = useRef<LatLon | null>(null)
+  const gradientEndSetRef = useRef(false)
 
   const [clickMode, setClickMode] = useState<ClickMode>('takeoff')
   const [takeoff, setTakeoff] = useState<LatLon | null>(null)
@@ -99,10 +99,6 @@ export function SiteProfiler() {
 
   useEffect(() => {
     clickModeRef.current = clickMode
-    const map = mapRef.current
-    if (!map) return
-    if (clickMode === 'gradient') map.dragging.disable()
-    else map.dragging.enable()
   }, [clickMode])
 
   // Map init — once.
@@ -120,8 +116,32 @@ export function SiteProfiler() {
     }
 
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (clickModeRef.current === 'gradient') return
       const point = { lat: e.latlng.lat, lon: e.latlng.lng }
+      if (clickModeRef.current === 'gradient') {
+        // Two-tap sequence (works identically for a mouse click or a phone
+        // tap — a drag gesture doesn't reliably fire mousemove/mouseup on
+        // touch devices). First tap/click sets the start; second sets the
+        // end, clamped to the max distance in that direction if it's
+        // farther. A third tap/click starts a fresh measurement.
+        if (!gradientStartRef.current || gradientEndSetRef.current) {
+          gradientStartRef.current = point
+          gradientEndSetRef.current = false
+          setGradientElevations(null)
+          setGradientEnd(null)
+          setGradientStart(point)
+          gradientLineRef.current?.remove()
+          gradientLineRef.current = L.polyline([[point.lat, point.lon], [point.lat, point.lon]], { color: '#c026d3', weight: 3 }).addTo(map)
+          return
+        }
+        const end = clampedEnd(gradientStartRef.current, point)
+        gradientEndSetRef.current = true
+        gradientLineRef.current?.setLatLngs([
+          [gradientStartRef.current.lat, gradientStartRef.current.lon],
+          [end.lat, end.lon],
+        ])
+        setGradientEnd(end)
+        return
+      }
       if (clickModeRef.current === 'takeoff') {
         setTakeoff(point)
         setTakeoffElevationFt(null)
@@ -133,32 +153,16 @@ export function SiteProfiler() {
       }
     })
 
-    map.on('mousedown', (e: L.LeafletMouseEvent) => {
-      if (clickModeRef.current !== 'gradient') return
-      const start = { lat: e.latlng.lat, lon: e.latlng.lng }
-      gradientStartRef.current = start
-      draggingGradientRef.current = true
-      setGradientElevations(null)
-      setGradientEnd(null)
-      setGradientStart(start)
-      gradientLineRef.current?.remove()
-      gradientLineRef.current = L.polyline([[start.lat, start.lon], [start.lat, start.lon]], { color: '#c026d3', weight: 3 }).addTo(map)
-    })
-
+    // Live preview line on desktop while hovering after the first tap —
+    // pure mouse-hover enhancement, harmless (and inert) on touch devices.
     map.on('mousemove', (e: L.LeafletMouseEvent) => {
-      if (!draggingGradientRef.current || !gradientStartRef.current) return
+      if (clickModeRef.current !== 'gradient') return
+      if (!gradientStartRef.current || gradientEndSetRef.current) return
       const end = clampedEnd(gradientStartRef.current, { lat: e.latlng.lat, lon: e.latlng.lng })
       gradientLineRef.current?.setLatLngs([
         [gradientStartRef.current.lat, gradientStartRef.current.lon],
         [end.lat, end.lon],
       ])
-    })
-
-    map.on('mouseup', (e: L.LeafletMouseEvent) => {
-      if (!draggingGradientRef.current || !gradientStartRef.current) return
-      draggingGradientRef.current = false
-      const end = clampedEnd(gradientStartRef.current, { lat: e.latlng.lat, lon: e.latlng.lng })
-      setGradientEnd(end)
     })
 
     return () => {
@@ -288,7 +292,7 @@ export function SiteProfiler() {
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Site Profiler</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Click the map to set a takeoff, then sweep a glide cone at a chosen ratio; click a second point to check whether a
-          specific hill or landing spot is in reach; or drag a short line (max 150m) to measure a launch slope's gradient.
+          specific hill or landing spot is in reach; or tap/click two points up to 150m apart to measure a launch slope's gradient.
         </p>
         <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
           Straight-line terrain clearance only, from SRTM elevation data — guidance, not a substitute for judging the day on the
@@ -298,7 +302,7 @@ export function SiteProfiler() {
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          {clickMode === 'gradient' ? 'Drag the map to measure:' : 'Click the map to set:'}
+          {clickMode === 'gradient' ? 'Tap two points to measure:' : 'Click the map to set:'}
         </span>
         {(['takeoff', 'target', 'gradient'] as ClickMode[]).map((mode) => (
           <button
@@ -436,11 +440,11 @@ export function SiteProfiler() {
         <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2 dark:border-slate-800 dark:bg-slate-900">
           <h3 className="mb-2 font-semibold text-slate-800 dark:text-slate-100">Slope gradient</h3>
           {clickMode !== 'gradient' ? (
-            <p className="text-sm text-slate-400">Click "Slope gradient" above, then drag on the map — e.g. from the top to the bottom of a launch face.</p>
+            <p className="text-sm text-slate-400">Click "Slope gradient" above, then tap the map twice — e.g. the top, then the bottom of a launch face.</p>
           ) : !gradientStart ? (
-            <p className="text-sm text-slate-400">Press and drag on the map (release within 150m of where you started).</p>
+            <p className="text-sm text-slate-400">Tap the map to set the start point.</p>
           ) : !gradientEnd ? (
-            <p className="text-sm text-slate-400">Drag to the other point and release — capped at 150m from the start.</p>
+            <p className="text-sm text-slate-400">Now tap the other point — capped at 150m from the start (a farther tap is clamped to 150m in that direction).</p>
           ) : (
             <>
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -466,8 +470,9 @@ export function SiteProfiler() {
                 </div>
               )}
               {gradientDistanceM != null && gradientDistanceM === 0 && (
-                <p className="mt-3 text-xs text-slate-400">Start and end were the same point — drag further to measure a real slope.</p>
+                <p className="mt-3 text-xs text-slate-400">Start and end were the same point — tap somewhere further away to measure a real slope.</p>
               )}
+              <p className="mt-3 text-[11px] text-slate-400">Tap anywhere to start a new measurement.</p>
             </>
           )}
         </div>
