@@ -24,6 +24,9 @@ supabase/.branches
 # Claude Code runtime state
 .claude/scheduled_tasks.lock
 
+# Scraper intermediate output — src/data/sites.json is the merged source of truth
+scripts/output/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
