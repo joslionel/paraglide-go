@@ -4,6 +4,7 @@ import { STATUS_DOT_BG, STATUS_SOLID_TEXT } from './StatusPill'
 import { dayLetter } from '../lib/format'
 
 const RADIUS_MILES = 50
+const MAX_NEARBY = 15
 
 export function NearbySitesList({
   selected,
@@ -18,16 +19,17 @@ export function NearbySitesList({
 }) {
   if (selected.lat == null || selected.lon == null) return null
 
-  const nearby = sites
+  const withinRadius = sites
     .filter((s): s is Site & { lat: number; lon: number } => s.slug !== selected.slug && s.lat != null && s.lon != null)
     .map((site) => ({ site, miles: distanceMiles(selected.lat!, selected.lon!, site.lat, site.lon) }))
     .filter((r) => r.miles <= RADIUS_MILES)
     .sort((a, b) => a.miles - b.miles)
+  const nearby = withinRadius.slice(0, MAX_NEARBY)
 
   return (
     <div className="mt-4">
       <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-        Within {RADIUS_MILES} miles of {selected.name}
+        {withinRadius.length > MAX_NEARBY ? `Nearest ${MAX_NEARBY} sites to ${selected.name}` : `Within ${RADIUS_MILES} miles of ${selected.name}`}
       </h3>
       {nearby.length === 0 ? (
         <p className="text-sm text-slate-400">No other sites within {RADIUS_MILES} miles.</p>
