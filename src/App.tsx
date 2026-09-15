@@ -13,13 +13,14 @@ import { PinnedDashboard } from './components/PinnedDashboard'
 import { SiteProfiler } from './components/SiteProfiler'
 import { AdminDashboard } from './components/AdminDashboard'
 import { WeatherPage } from './components/WeatherPage'
+import { CourseHome } from './components/CourseHome'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
 
 const STATUS_LEGEND: Status[] = ['on', 'marginal', 'off', 'unknown']
 
-type Filter = 'all' | 'open' | 'members' | 'weather' | 'pinned' | 'profiler' | 'admin'
+type Filter = 'all' | 'open' | 'members' | 'weather' | 'course' | 'pinned' | 'profiler' | 'admin'
 
 function DashboardContent() {
   const { user, profile } = useAuth()
@@ -126,6 +127,7 @@ function DashboardContent() {
                 'open',
                 'members',
                 'weather',
+                'course',
                 ...(user ? (['pinned', 'profiler'] as Filter[]) : []),
                 ...(profile?.is_admin ? (['admin'] as Filter[]) : []),
               ] as Filter[]
@@ -147,20 +149,26 @@ function DashboardContent() {
                       ? 'Members only'
                       : f === 'weather'
                         ? 'Weather'
-                        : f === 'pinned'
-                          ? '★ My Dashboard'
-                          : f === 'profiler'
-                            ? 'Site Profiler'
-                            : 'Admin'}
+                        : f === 'course'
+                          ? 'Weather Course'
+                          : f === 'pinned'
+                            ? '★ My Dashboard'
+                            : f === 'profiler'
+                              ? 'Site Profiler'
+                              : 'Admin'}
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && filter !== 'admin' && filter !== 'weather' && (
-            <AddSiteForm remaining={remainingSites} quota={siteQuota} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
-          )}
+          {isSupabaseConfigured &&
+            user &&
+            filter !== 'pinned' &&
+            filter !== 'profiler' &&
+            filter !== 'admin' &&
+            filter !== 'weather' &&
+            filter !== 'course' && <AddSiteForm remaining={remainingSites} quota={siteQuota} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />}
         </div>
 
-        {isSupabaseConfigured && !user && filter !== 'weather' && (
+        {isSupabaseConfigured && !user && filter !== 'weather' && filter !== 'course' && (
           <p className="mb-4 text-xs text-slate-400">Log in to see members-only and member-added sites, and to pin favorites.</p>
         )}
 
@@ -183,7 +191,9 @@ function DashboardContent() {
         ) : filter === 'admin' ? (
           <AdminDashboard />
         ) : filter === 'weather' ? (
-          <WeatherPage />
+          <WeatherPage onOpenCourse={() => setFilter('course')} />
+        ) : filter === 'course' ? (
+          <CourseHome />
         ) : (
           <div>
             <AllSitesMap sites={visibleSites} conditions={conditions} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
