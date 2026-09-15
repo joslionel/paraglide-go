@@ -1,5 +1,22 @@
 import { FrontSymbol } from './FrontSymbol'
-import { WarmFrontCrossSection, ColdFrontCrossSection, PressureSystemDiagram } from './WeatherDiagrams'
+import { CloudIcon, type CloudType } from './CloudIcon'
+import {
+  WarmFrontCrossSection,
+  ColdFrontCrossSection,
+  PressureSystemDiagram,
+  WindBarb,
+  IsobarSpacingDiagram,
+  TroughDiagram,
+} from './WeatherDiagrams'
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6">
+      <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase dark:text-slate-500">{title}</h4>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
+    </div>
+  )
+}
 
 function Topic({
   title,
@@ -17,7 +34,7 @@ function Topic({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h4 className="font-semibold text-slate-800 dark:text-slate-100">{title}</h4>
+        <h5 className="font-semibold text-slate-800 dark:text-slate-100">{title}</h5>
         {symbol}
       </div>
       <div className="mb-3 max-w-sm">{diagram}</div>
@@ -30,19 +47,87 @@ function Topic({
   )
 }
 
-/** A short, illustrated introduction to reading a UK synoptic chart — fronts, depressions and anticyclones — with a paragliding-relevant takeaway for each. Not a substitute for a proper met course; just enough to make sense of the chart above. */
+const CLOUDS: { type: CloudType; name: string; blurb: string; tip: string }[] = [
+  {
+    type: 'cirrus',
+    name: 'Cirrus',
+    blurb: 'High (16,000ft+), thin, wispy — made of ice crystals. Fair weather on its own.',
+    tip: "Often the first visible sign of a warm front, a day or more before the rain arrives — worth checking the chart if you see it thickening.",
+  },
+  {
+    type: 'stratus',
+    name: 'Stratus',
+    blurb: 'Low, flat, featureless grey layer — forms in stable air, sometimes with drizzle.',
+    tip: 'Usually a no-go day — poor visibility, weak or no thermals, and sometimes hill fog right at launch.',
+  },
+  {
+    type: 'cumulus',
+    name: 'Cumulus',
+    blurb: 'Fluffy, flat-bottomed heaps, growing from rising thermals in unstable air.',
+    tip: "The classic thermic-soaring marker — the flat base is roughly the top of the lift below it.",
+  },
+  {
+    type: 'cumulonimbus',
+    name: 'Cumulonimbus',
+    blurb: 'A cumulus that has grown explosively tall — heavy showers, thunder, hail.',
+    tip: 'Land immediately if one is building nearby — severe turbulence, lightning and violent gusts.',
+  },
+]
+
+/** A short, illustrated introduction to reading a UK synoptic chart — the symbols (isobars, wind barbs, troughs), fronts, pressure systems, and the cloud types tied to each — with a paragliding-relevant takeaway throughout. Not a substitute for a proper met course; just enough to make sense of the chart above. */
 export function WeatherCourse() {
   return (
     <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Reading the chart</h3>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          The wiggly coloured lines are weather fronts — the leading edges of moving air masses. The dashed circles
-          are isobars, joining points of equal pressure; the tighter they're packed, the stronger the wind.
+          Everything on the chart above is built from a handful of symbols. Here's what each one means, and the sky
+          evidence that confirms it.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <Section title="Chart symbols">
+        <Topic title="Isobars & pressure" diagram={<IsobarSpacingDiagram />} tip="Use the isobar spacing around a site as a quick gut-check on wind strength before you even open a forecast.">
+          <p>
+            Isobars are lines joining points of equal pressure (usually drawn every 4 hPa). Wind flows roughly along
+            them, driven by the pressure difference — the bigger that difference over a given distance, the faster
+            the air moves.
+          </p>
+          <p>So the spacing tells you the story directly: widely spaced isobars mean light wind; tightly packed ones mean strong wind.</p>
+        </Topic>
+
+        <Topic
+          title="Wind barbs"
+          diagram={
+            <div className="space-y-2">
+              <WindBarb knots={10} label="10 kt — one full barb" />
+              <WindBarb knots={25} label="25 kt — two full, one half" />
+              <WindBarb knots={50} label="50 kt — one pennant" />
+            </div>
+          }
+          tip="A quick way to spot a genuinely windy day at a glance — two or more full barbs, or any pennant, and it's probably not flyable."
+        >
+          <p>
+            A wind barb marks wind speed and direction at a point: the shaft points the direction the wind is
+            blowing from, and the "feathers" on the end encode the speed — a short half-barb is 5 knots, a full barb
+            10 knots, and a solid triangular pennant 50 knots, added together.
+          </p>
+        </Topic>
+
+        <Topic
+          title="Troughs"
+          diagram={<TroughDiagram />}
+          tip="Expect a brief but sometimes sharp wind shift and a band of showers as a trough passes — check its timing against your flying window."
+        >
+          <p>
+            A trough is an elongated dip in pressure extending out from a low, marked as a dashed line or a sharp
+            kink in the isobars — but unlike a low, it has no closed circulation of its own.
+          </p>
+          <p>It often behaves like a mild, scaled-down cold front: a shift in wind direction and a line of showers as it crosses.</p>
+        </Topic>
+      </Section>
+
+      <Section title="Fronts">
         <Topic title="Warm front" symbol={<FrontSymbol type="warm" className="h-6 w-24" />} diagram={<WarmFrontCrossSection />} tip="Watch for the long build-up beforehand — thickening high cloud a day out is often the first sign, well before the rain and low cloud arrive.">
           <p>
             The leading edge of an advancing mass of warmer air. Because warm air is lighter, it doesn't push the
@@ -86,7 +171,9 @@ export function WeatherCourse() {
           </p>
           <p>The weather is a blend of both — usually extended cloud and rain, but rarely as intense as a fresh cold front.</p>
         </Topic>
+      </Section>
 
+      <Section title="Pressure systems">
         <Topic title="Depression (low)" diagram={<PressureSystemDiagram kind="low" />} tip="Generally not flyable near the centre or an active front — strong, gusty, and rapidly shifting wind, plus low cloud and rain.">
           <p>
             An area of low pressure. Air spirals in and rises, cooling as it goes — which is why lows bring cloud,
@@ -103,6 +190,20 @@ export function WeatherCourse() {
             high in the Northern Hemisphere, and is usually lighter than around a low.
           </p>
         </Topic>
+      </Section>
+
+      <div>
+        <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase dark:text-slate-500">Clouds to know</h4>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {CLOUDS.map((c) => (
+            <div key={c.type} className="rounded-xl border border-slate-200 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
+              <CloudIcon type={c.type} className="mx-auto h-16 w-16" />
+              <h5 className="mt-2 font-semibold text-slate-800 dark:text-slate-100">{c.name}</h5>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.blurb}</p>
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">{c.tip}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
