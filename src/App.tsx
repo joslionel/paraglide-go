@@ -12,13 +12,14 @@ import { UnitToggle } from './components/UnitToggle'
 import { PinnedDashboard } from './components/PinnedDashboard'
 import { SiteProfiler } from './components/SiteProfiler'
 import { AdminDashboard } from './components/AdminDashboard'
+import { WeatherPage } from './components/WeatherPage'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
 
 const STATUS_LEGEND: Status[] = ['on', 'marginal', 'off', 'unknown']
 
-type Filter = 'all' | 'open' | 'members' | 'pinned' | 'profiler' | 'admin'
+type Filter = 'all' | 'open' | 'members' | 'weather' | 'pinned' | 'profiler' | 'admin'
 
 function DashboardContent() {
   const { user, profile } = useAuth()
@@ -124,6 +125,7 @@ function DashboardContent() {
                 'all',
                 'open',
                 'members',
+                'weather',
                 ...(user ? (['pinned', 'profiler'] as Filter[]) : []),
                 ...(profile?.is_admin ? (['admin'] as Filter[]) : []),
               ] as Filter[]
@@ -143,20 +145,22 @@ function DashboardContent() {
                     ? 'Open'
                     : f === 'members'
                       ? 'Members only'
-                      : f === 'pinned'
-                        ? '★ My Dashboard'
-                        : f === 'profiler'
-                          ? 'Site Profiler'
-                          : 'Admin'}
+                      : f === 'weather'
+                        ? 'Weather'
+                        : f === 'pinned'
+                          ? '★ My Dashboard'
+                          : f === 'profiler'
+                            ? 'Site Profiler'
+                            : 'Admin'}
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && filter !== 'admin' && (
+          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && filter !== 'admin' && filter !== 'weather' && (
             <AddSiteForm remaining={remainingSites} quota={siteQuota} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
           )}
         </div>
 
-        {isSupabaseConfigured && !user && (
+        {isSupabaseConfigured && !user && filter !== 'weather' && (
           <p className="mb-4 text-xs text-slate-400">Log in to see members-only and member-added sites, and to pin favorites.</p>
         )}
 
@@ -178,6 +182,8 @@ function DashboardContent() {
           <SiteProfiler />
         ) : filter === 'admin' ? (
           <AdminDashboard />
+        ) : filter === 'weather' ? (
+          <WeatherPage />
         ) : (
           <div>
             <AllSitesMap sites={visibleSites} conditions={conditions} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
