@@ -357,6 +357,37 @@ export const ALL_QUESTIONS: Question[] = [
     correct: 1,
     explanation: "Built from a real morning balloon sounding, it's the tool behind exactly the ELR-vs-DALR/SALR comparison covered in this section.",
   },
+  {
+    section: 'thermals',
+    prompt: "The internationally agreed 'standard atmosphere' lapse rate — a fixed reference average, not any particular day's ELR — is approximately…",
+    options: ['1°C per 1,000ft', '2°C per 1,000ft (~6.5°C/km)', '5°C per 1,000ft', '10°C per 1,000ft'],
+    correct: 1,
+    explanation: "That's the ISA reference figure. A real day's ELR is usually different — often steeper on a good thermic day, shallower or inverted on a stable one.",
+  },
+  {
+    section: 'thermals',
+    prompt: "Unlike the DALR, the SALR isn't a single fixed number because…",
+    options: [
+      "It depends on the pilot's licence level",
+      'It depends on how much moisture is condensing — warmer, moister air releases more latent heat and cools more slowly',
+      'It only applies at night',
+      "It's always exactly half the DALR",
+    ],
+    correct: 1,
+    explanation: 'Roughly 1.5–3°C per 1,000ft in practice — shallower (slower cooling) in warm, moist air with lots of condensation to release heat; closer to the DALR in cold, dry air with little moisture left to give up.',
+  },
+  {
+    section: 'thermals',
+    prompt: 'On a tephigram-style plot, an early-capped, weak thermal typically shows up as…',
+    options: [
+      'A very steep ELR all the way to a great height',
+      "A shallow ELR near the ground that the rising parcel's own line quickly crosses back through",
+      'No ELR line at all',
+      'A cloud base sitting right at ground level'
+    ],
+    correct: 1,
+    explanation: "Once the parcel's line crosses back to meet (or cross) the ELR, it's no longer warmer than its surroundings — that's the thermal's top, and a shallow ELR means it happens early and low.",
+  },
 
   // ---- Local winds: valley winds, sea breezes, wave ----
   {

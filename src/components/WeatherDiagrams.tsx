@@ -172,40 +172,79 @@ export function TroughDiagram() {
  * scale, but the parcel line is deliberately kept to the right of (warmer
  * than) the ELR line throughout, since that's the definition of instability.
  */
-export function ThermalDiagram() {
+/**
+ * Height-vs-temperature sketch comparing the day's actual ELR against a
+ * rising parcel's DALR (and SALR above cloud base) — the same idea a real
+ * tephigram plots from a morning sounding. Parameterized so the worked
+ * examples below can reuse it with different endpoints; `minimal` drops the
+ * text labels for those small side-by-side variants (the coloring/position
+ * alone carries the story once the labelled version above has taught it).
+ */
+export function ThermalDiagram({
+  elrEnd = [110, 40],
+  cloudBase = [180, 110],
+  parcelTop = [165, 40],
+  minimal = false,
+}: {
+  elrEnd?: [number, number]
+  cloudBase?: [number, number] | null
+  parcelTop?: [number, number]
+  minimal?: boolean
+}) {
+  const ground: [number, number] = [230, 185]
+  const dalrEnd = cloudBase ?? parcelTop
   return (
     <svg viewBox="0 0 300 210" className="h-auto w-full">
       <line x1="55" y1="15" x2="55" y2="188" stroke={INK} strokeWidth="1.5" />
       <line x1="55" y1="188" x2="278" y2="188" stroke={INK} strokeWidth="1.5" />
-      <text x="18" y="28" fontSize="10" fill={INK}>
-        Height
-      </text>
-      <text x="150" y="203" fontSize="10" fill={INK}>
-        Warmer →
-      </text>
+      {!minimal && (
+        <>
+          <text x="18" y="28" fontSize="10" fill={INK}>
+            Height
+          </text>
+          <text x="150" y="203" fontSize="10" fill={INK}>
+            Warmer →
+          </text>
+        </>
+      )}
 
-      <path d="M 230 185 L 110 40" stroke={INK} strokeWidth="2" fill="none" />
-      <text x="65" y="38" fontSize="10.5" fill={INK}>
-        ELR (today)
-      </text>
+      <path d={`M ${ground[0]} ${ground[1]} L ${elrEnd[0]} ${elrEnd[1]}`} stroke={INK} strokeWidth="2" fill="none" />
+      {!minimal && (
+        <text x={Math.max(8, elrEnd[0] - 45)} y={Math.max(15, elrEnd[1] - 2)} fontSize="10.5" fill={INK}>
+          ELR (today)
+        </text>
+      )}
 
-      <path d="M 230 185 L 180 110" stroke="#d03b3b" strokeWidth="2.5" fill="none" />
-      <path d="M 180 110 L 165 40" stroke="#2563eb" strokeWidth="2.5" fill="none" />
-      <circle cx="180" cy="110" r="3.5" fill="#2563eb" />
-      <text x="184" y="107" fontSize="9.5" fill={INK}>
-        Cloud base
-      </text>
-      <text x="195" y="155" fontSize="10.5" fill="#d03b3b">
-        DALR
-      </text>
-      <text x="150" y="65" fontSize="10.5" fill="#2563eb">
-        SALR
-      </text>
+      <path d={`M ${ground[0]} ${ground[1]} L ${dalrEnd[0]} ${dalrEnd[1]}`} stroke="#d03b3b" strokeWidth="2.5" fill="none" />
+      {!minimal && (
+        <text x={ground[0] - 35} y="155" fontSize="10.5" fill="#d03b3b">
+          DALR
+        </text>
+      )}
 
-      <circle cx="230" cy="185" r="3.5" fill={INK} />
-      <text x="205" y="200" fontSize="9.5" fill={INK}>
-        Ground
-      </text>
+      {cloudBase && (
+        <>
+          <path d={`M ${cloudBase[0]} ${cloudBase[1]} L ${parcelTop[0]} ${parcelTop[1]}`} stroke="#2563eb" strokeWidth="2.5" fill="none" />
+          <circle cx={cloudBase[0]} cy={cloudBase[1]} r="3.5" fill="#2563eb" />
+          {!minimal && (
+            <>
+              <text x={cloudBase[0] + 4} y={cloudBase[1] - 3} fontSize="9.5" fill={INK}>
+                Cloud base
+              </text>
+              <text x={Math.max(8, parcelTop[0] - 15)} y={Math.max(15, parcelTop[1] - 3)} fontSize="10.5" fill="#2563eb">
+                SALR
+              </text>
+            </>
+          )}
+        </>
+      )}
+
+      <circle cx={ground[0]} cy={ground[1]} r="3.5" fill={INK} />
+      {!minimal && (
+        <text x={ground[0] - 25} y={ground[1] + 15} fontSize="9.5" fill={INK}>
+          Ground
+        </text>
+      )}
     </svg>
   )
 }
