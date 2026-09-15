@@ -69,7 +69,7 @@ export function ColdFrontCrossSection() {
       <Rain x={180} y={100} />
       <Rain x={200} y={100} />
       <text x="20" y="143" fontSize="10" fill={INK}>
-        ⟵ front moves this way
+        ⟶ front moves this way
       </text>
     </svg>
   )

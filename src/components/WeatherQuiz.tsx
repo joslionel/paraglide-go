@@ -69,7 +69,7 @@ const ALL_QUESTIONS: Question[] = [
     explanation: 'Air spirals inward and rises around a low — anticlockwise in the Northern Hemisphere.',
   },
   {
-    prompt: 'And around an anticyclone (high)?',
+    prompt: 'In the Northern Hemisphere, which way does wind circulate around an anticyclone (high)?',
     options: ['Clockwise', 'Anticlockwise', "It doesn't rotate", 'Depends on the season'],
     correct: 0,
     explanation: 'Air sinks and spreads out around a high — clockwise in the Northern Hemisphere, usually more gently than around a low.',
