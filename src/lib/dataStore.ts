@@ -10,7 +10,7 @@
 // static-file behaviour, so it keeps working before Supabase is wired up.
 import sitesData from '../data/sites.json'
 import { supabase, isSupabaseConfigured } from './supabaseClient'
-import type { Site, ConditionsCache, SiteConditions } from './types'
+import type { Site, ConditionsCache, SiteConditions, Profile, ReferralCode } from './types'
 
 export async function getSites(): Promise<Site[]> {
   if (supabase) {
@@ -77,6 +77,59 @@ export async function pinSite(userId: string, slug: string): Promise<void> {
 export async function unpinSite(userId: string, slug: string): Promise<void> {
   if (!supabase) throw new Error('Pinning requires Supabase to be configured')
   const { error } = await supabase.from('pinned_sites').delete().eq('user_id', userId).eq('slug', slug)
+  if (error) throw new Error(error.message)
+}
+
+/** The signed-in user's own quotas/admin flag (My Dashboard, admin gating). Supabase-only — no local-JSON concept, since it requires an account. */
+export async function getProfile(userId: string): Promise<Profile | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+  if (error) throw new Error(`Failed to load profile: ${error.message}`)
+  return data as Profile | null
+}
+
+/** Referral codes the given user has created (used by the invite panel to show their status). */
+export async function getReferralCodes(userId: string): Promise<ReferralCode[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('referral_codes').select('*').eq('created_by', userId).order('created_at', { ascending: false })
+  if (error) throw new Error(`Failed to load referral codes: ${error.message}`)
+  return data as ReferralCode[]
+}
+
+function randomReferralCode(): string {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+}
+
+/**
+ * Creates a new single-use invite code owned by the given user. The RLS
+ * insert policy (migration 0006) enforces the per-user quota server-side —
+ * this just generates a short random code and retries once on the
+ * astronomically unlikely chance of a collision with an existing one.
+ */
+export async function createReferralCode(userId: string): Promise<ReferralCode> {
+  if (!supabase) throw new Error('Creating an invite link requires Supabase to be configured')
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const code = randomReferralCode()
+    const { data, error } = await supabase.from('referral_codes').insert({ code, created_by: userId, uses_remaining: 1 }).select().single()
+    if (!error) return data as ReferralCode
+    if (error.code !== '23505') throw new Error(error.message) // not a unique-violation — don't retry
+  }
+  throw new Error('Could not generate a unique invite code — try again.')
+}
+
+/** Every user's profile — admin-dashboard only; RLS only returns all rows to an admin (see is_admin() in migration 0006). */
+export async function getAllProfiles(): Promise<Profile[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at')
+  if (error) throw new Error(`Failed to load accounts: ${error.message}`)
+  return data as Profile[]
+}
+
+/** Admin-only: raise (or lower) another user's referral-code / custom-site quota. RLS restricts this update to admins and to just these two columns. */
+export async function updateProfileQuotas(targetUserId: string, updates: { referral_code_quota?: number; custom_site_quota?: number }): Promise<void> {
+  if (!supabase) throw new Error('Updating quotas requires Supabase to be configured')
+  const { error } = await supabase.from('profiles').update(updates).eq('id', targetUserId)
   if (error) throw new Error(error.message)
 }
 

@@ -80,9 +80,15 @@ Deno.serve(async (req) => {
     return json({ ok: true })
   }
 
-  const { data: code } = await supabase.from('referral_codes').select('*').eq('code', referralCode).maybeSingle()
-
-  if (!code || (code.uses_remaining !== null && code.uses_remaining <= 0)) {
+  // Validate-and-decrement in one atomic statement (see redeem_referral_code
+  // in migration 0006) — a separate select-then-update here would race: two
+  // simultaneous redemptions of a 1-use code could otherwise both succeed.
+  const { data: redeemed, error: redeemError } = await supabase.rpc('redeem_referral_code', { p_code: referralCode })
+  if (redeemError) {
+    console.error('redeem_referral_code failed:', redeemError)
+    return json({ error: 'Could not validate referral code' }, 500)
+  }
+  if (!redeemed) {
     return json({ error: 'That referral code is not valid' }, 400)
   }
 
@@ -90,13 +96,6 @@ Deno.serve(async (req) => {
   if (inviteError) {
     console.error('inviteUserByEmail failed:', inviteError)
     return json({ error: `Could not create account: ${inviteError.message}` }, 500)
-  }
-
-  if (code.uses_remaining !== null) {
-    await supabase
-      .from('referral_codes')
-      .update({ uses_remaining: code.uses_remaining - 1 })
-      .eq('code', referralCode)
   }
 
   return json({ ok: true })

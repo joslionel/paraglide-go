@@ -49,3 +49,19 @@ export interface ConditionsCache {
   generated_at: string
   sites: Record<string, SiteConditions>
 }
+
+export interface Profile {
+  id: string
+  email: string | null
+  is_admin: boolean
+  referral_code_quota: number
+  custom_site_quota: number
+  created_at: string
+}
+
+export interface ReferralCode {
+  code: string
+  created_by: string | null
+  uses_remaining: number | null
+  created_at: string
+}

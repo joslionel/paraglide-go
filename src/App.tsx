@@ -11,16 +11,17 @@ import { AddSiteForm } from './components/AddSiteForm'
 import { UnitToggle } from './components/UnitToggle'
 import { PinnedDashboard } from './components/PinnedDashboard'
 import { SiteProfiler } from './components/SiteProfiler'
+import { AdminDashboard } from './components/AdminDashboard'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { UnitProvider, useUnit } from './lib/UnitContext'
 import { formatSpeed, UNIT_LABELS } from './lib/units'
 
 const STATUS_LEGEND: Status[] = ['on', 'marginal', 'off', 'unknown']
 
-type Filter = 'all' | 'open' | 'members' | 'pinned' | 'profiler'
+type Filter = 'all' | 'open' | 'members' | 'pinned' | 'profiler' | 'admin'
 
 function DashboardContent() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { unit } = useUnit()
   const [sites, setSites] = useState<Site[]>([])
   const [conditions, setConditions] = useState<ConditionsCache | null>(null)
@@ -62,8 +63,9 @@ function DashboardContent() {
   }, [loadSites, loadPinned, user])
 
   useEffect(() => {
-    if (!user && (filter === 'pinned' || filter === 'profiler')) setFilter('all')
-  }, [user, filter])
+    if (!user && (filter === 'pinned' || filter === 'profiler' || filter === 'admin')) setFilter('all')
+    if (filter === 'admin' && !profile?.is_admin) setFilter('all')
+  }, [user, profile, filter])
 
   useEffect(() => {
     if (selectedSlug) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -83,6 +85,8 @@ function DashboardContent() {
   })
 
   const customSiteCount = user ? sites.filter((s) => s.is_custom && s.owner_id === user.id).length : 0
+  const siteQuota = profile?.custom_site_quota ?? 5
+  const remainingSites = profile?.is_admin ? null : siteQuota - customSiteCount
   const pinnedSites = pinnedSlugs.map((slug) => sites.find((s) => s.slug === slug)).filter((s): s is Site => Boolean(s))
   const selectedSite = visibleSites.find((s) => s.slug === selectedSlug) ?? null
 
@@ -106,7 +110,7 @@ function DashboardContent() {
             </div>
             <div className="flex items-center gap-2">
               <UnitToggle />
-              <UserMenu />
+              <UserMenu onOpenAdmin={() => setFilter('admin')} />
             </div>
           </div>
         </div>
@@ -115,7 +119,15 @@ function DashboardContent() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-1.5">
-            {(['all', 'open', 'members', ...(user ? (['pinned', 'profiler'] as Filter[]) : [])] as Filter[]).map((f) => (
+            {(
+              [
+                'all',
+                'open',
+                'members',
+                ...(user ? (['pinned', 'profiler'] as Filter[]) : []),
+                ...(profile?.is_admin ? (['admin'] as Filter[]) : []),
+              ] as Filter[]
+            ).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -133,12 +145,14 @@ function DashboardContent() {
                       ? 'Members only'
                       : f === 'pinned'
                         ? '★ My Dashboard'
-                        : 'Site Profiler'}
+                        : f === 'profiler'
+                          ? 'Site Profiler'
+                          : 'Admin'}
               </button>
             ))}
           </div>
-          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && (
-            <AddSiteForm remaining={5 - customSiteCount} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
+          {isSupabaseConfigured && user && filter !== 'pinned' && filter !== 'profiler' && filter !== 'admin' && (
+            <AddSiteForm remaining={remainingSites} quota={siteQuota} onAdded={loadSites} onConditionsRefreshed={mergeConditions} />
           )}
         </div>
 
@@ -162,6 +176,8 @@ function DashboardContent() {
           <PinnedDashboard pinnedSites={pinnedSites} conditions={conditions} />
         ) : filter === 'profiler' ? (
           <SiteProfiler />
+        ) : filter === 'admin' ? (
+          <AdminDashboard />
         ) : (
           <div>
             <AllSitesMap sites={visibleSites} conditions={conditions} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />

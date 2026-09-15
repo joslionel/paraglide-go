@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/functions-js'
 import { supabase } from '../lib/supabaseClient'
 
 type Mode = 'existing' | 'new'
+
+/** A shared invite link (?ref=<code>) should land straight on a ready-to-submit "New member" form. */
+function referralCodeFromUrl(): string {
+  return new URLSearchParams(window.location.search).get('ref') ?? ''
+}
 
 async function extractErrorMessage(error: unknown, data: { error?: string } | null): Promise<string> {
   if (data?.error) return data.error
@@ -18,11 +23,22 @@ async function extractErrorMessage(error: unknown, data: { error?: string } | nu
 }
 
 export function AuthForm({ onClose }: { onClose: () => void }) {
-  const [mode, setMode] = useState<Mode>('existing')
+  const urlReferralCode = referralCodeFromUrl()
+  const [mode, setMode] = useState<Mode>(urlReferralCode ? 'new' : 'existing')
   const [email, setEmail] = useState('')
-  const [referralCode, setReferralCode] = useState('')
+  const [referralCode, setReferralCode] = useState(urlReferralCode)
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+
+  // Covers the case where this form was already mounted (e.g. the popover
+  // was open) when the ?ref= link navigation landed.
+  useEffect(() => {
+    const code = referralCodeFromUrl()
+    if (code) {
+      setMode('new')
+      setReferralCode(code)
+    }
+  }, [])
 
   const switchMode = (m: Mode) => {
     setMode(m)

@@ -16,10 +16,13 @@ function slugify(name: string): string {
 
 export function AddSiteForm({
   remaining,
+  quota,
   onAdded,
   onConditionsRefreshed,
 }: {
-  remaining: number
+  /** Sites left this account can add — null means unlimited (admins). */
+  remaining: number | null
+  quota: number
   onAdded: () => void
   onConditionsRefreshed: (slug: string, conditions: SiteConditions) => void
 }) {
@@ -35,7 +38,7 @@ export function AddSiteForm({
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
-  if (!user || remaining <= 0) return null
+  if (!user || remaining === 0) return null
 
   const reset = () => {
     setName('')
@@ -134,7 +137,7 @@ export function AddSiteForm({
         onClick={() => setOpen(true)}
         className="cursor-pointer rounded-full border border-dashed border-slate-300 px-3 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
       >
-        + Add a site ({remaining} left)
+        + Add a site {remaining === null ? '' : `(${remaining} left)`}
       </button>
     )
   }
@@ -143,7 +146,7 @@ export function AddSiteForm({
     <form onSubmit={submit} className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-semibold text-slate-900 dark:text-slate-100">Add a site</h3>
-        <span className="text-xs text-slate-400">{remaining} of 5 remaining</span>
+        <span className="text-xs text-slate-400">{remaining === null ? 'Unlimited' : `${remaining} of ${quota} remaining`}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
