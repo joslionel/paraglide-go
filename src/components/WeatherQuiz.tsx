@@ -39,6 +39,24 @@ const ALL_QUESTIONS: Question[] = [
     explanation: "Alternating triangles and semicircles on the same side — a cold front that's caught up with the warm front ahead of it.",
   },
   {
+    prompt: 'Which front does this symbol represent?',
+    visual: frontVisual('stationary'),
+    options: ['Warm front', 'Occluded front', 'Stationary front', 'A trough'],
+    correct: 2,
+    explanation: "Warm-front semicircles and cold-front triangles on opposite sides of the line — neither air mass is winning, so the boundary is holding roughly still.",
+  },
+  {
+    prompt: "A stationary front's symbol differs from an occluded front's because…",
+    options: [
+      'It has no markers at all',
+      'Its markers sit on opposite sides of the line, rather than both crowding the same side',
+      "It's always coloured green",
+      'It only ever appears in winter',
+    ],
+    correct: 1,
+    explanation: 'An occluded front piles both marker types onto one side; a stationary front splits them — one on each side — to show the stand-off between the two air masses.',
+  },
+  {
     prompt: 'Which type of front typically gives the longest, steadiest build-up of rain as it approaches?',
     options: ['Cold front', 'Warm front', 'Occluded front', "None — fronts don't affect rainfall"],
     correct: 1,
@@ -133,6 +151,17 @@ const ALL_QUESTIONS: Question[] = [
     options: ['A brief windshift and a band of showers', 'Weeks of settled sunshine', 'No noticeable change at all', 'A sudden rise in temperature only'],
     correct: 0,
     explanation: "Similar in miniature to a cold front — a shift in wind direction and a line of showers as it crosses.",
+  },
+  {
+    prompt: 'How is a trough marked on a synoptic chart?',
+    options: [
+      'A dashed blue line with triangles, like a cold front',
+      'A solid black line, with no triangle or semicircle markers',
+      'A red circle around the affected area',
+      "It isn't marked — only the isobars hint at it",
+    ],
+    correct: 1,
+    explanation: "That's the giveaway that distinguishes it from a front on the chart: a plain solid line, no markers, often lined up with a kink in the isobars.",
   },
   {
     prompt: 'Which cloud is typically the first visible sign of an approaching warm front, sometimes a day or more ahead?',

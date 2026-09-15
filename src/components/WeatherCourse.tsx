@@ -112,6 +112,11 @@ export function WeatherCourse() {
             blowing from, and the "feathers" on the end encode the speed — a short half-barb is 5 knots, a full barb
             10 knots, and a solid triangular pennant 50 knots, added together.
           </p>
+          <p className="text-xs text-slate-400">
+            You won't see these on the surface pressure chart above — that only plots isobars and fronts. Barbs turn
+            up on separate <em>surface observation</em> (station-plot) charts, where each one marks the wind actually
+            reported at a weather station.
+          </p>
         </Topic>
 
         <Topic
@@ -120,8 +125,9 @@ export function WeatherCourse() {
           tip="Expect a brief but sometimes sharp wind shift and a band of showers as a trough passes — check its timing against your flying window."
         >
           <p>
-            A trough is an elongated dip in pressure extending out from a low, marked as a dashed line or a sharp
-            kink in the isobars — but unlike a low, it has no closed circulation of its own.
+            A trough is an elongated dip in pressure extending out from a low, but unlike a low it has no closed
+            circulation of its own — and unlike a front, it carries no triangle or semicircle markers. It's drawn
+            simply as a solid black line, often lined up with a sharp kink in the isobars.
           </p>
           <p>It often behaves like a mild, scaled-down cold front: a shift in wind direction and a line of showers as it crosses.</p>
         </Topic>
@@ -170,6 +176,25 @@ export function WeatherCourse() {
             symbol: alternating triangles and semicircles on the same side of the line.
           </p>
           <p>The weather is a blend of both — usually extended cloud and rain, but rarely as intense as a fresh cold front.</p>
+        </Topic>
+
+        <Topic
+          title="Stationary front"
+          symbol={<FrontSymbol type="stationary" className="h-6 w-24" />}
+          diagram={
+            <div className="flex items-center gap-3 py-4">
+              <FrontSymbol type="stationary" className="h-10 w-40" />
+            </div>
+          }
+          tip="A front stalled nearby often means several days of marginal, changeable conditions rather than one clean weather change — expect it to flip from one side's weather to the other with little warning."
+        >
+          <p>
+            Sometimes neither air mass is strong enough to displace the other, and the boundary between them barely
+            moves for a day or more. The symbol reflects that stand-off: warm-front semicircles and cold-front
+            triangles sit on <em>opposite</em> sides of the same line, rather than crowding onto one side like an
+            occluded front.
+          </p>
+          <p>Expect a prolonged spell of cloud and on-and-off rain right along the boundary — it can sit there for days before something finally shifts it.</p>
         </Topic>
       </Section>
 

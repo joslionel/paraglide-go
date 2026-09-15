@@ -154,8 +154,8 @@ export function TroughDiagram() {
       {isobarY.map((y) => (
         <path key={y} d={`M 10 ${y} Q 150 ${y} 160 ${y + 22} Q 170 ${y} 270 ${y}`} fill="none" stroke={INK} strokeWidth="1.5" opacity={0.7} />
       ))}
-      <line x1="160" y1="8" x2="180" y2="118" stroke="#d03b3b" strokeWidth="2" strokeDasharray="6 4" />
-      <text x="186" y="24" fontSize="11" fill="#d03b3b">
+      <line x1="160" y1="8" x2="180" y2="118" stroke="#0f172a" strokeWidth="2.5" />
+      <text x="186" y="24" fontSize="11" fill="#0f172a">
         Trough axis
       </text>
       <text x="60" y="122" fontSize="10.5" fill={INK}>
